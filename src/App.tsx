@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { JSX, useEffect, useMemo, useState } from "react";
 
 /* ============================
    Constants & Types (unchanged)
