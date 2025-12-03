@@ -5,10 +5,10 @@ import React, { JSX, useEffect, useMemo, useState } from "react";
    ============================ */
 // Internal calculation still uses the precise price per book for accuracy
 const PLAN_PRICES = {
-  "1 Book (₹199)": 199,
-  "3 Books (₹499)": 499 / 3, 
-  "6 Books (₹999)": 999 / 6, 
-  "12 Books (₹1999)": 1999 / 12, 
+  "1 Book": 199, // Removed (₹199)
+  "3 Books": 499 / 3, 
+  "6 Books": 999 / 6, 
+  "12 Books": 1999 / 12, 
 } as const;
 
 type PlanKey = keyof typeof PLAN_PRICES;
@@ -16,17 +16,17 @@ type PlanKey = keyof typeof PLAN_PRICES;
 interface PricingPlan {
   title: string;
   price: string; // Simplified price display
-  details: string;
+  details: string; // Simplified details
   discount: string;
   value: PlanKey;
 }
 
-// Updated pricing plan details for simpler display
+// Updated pricing plan details for much simpler display
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199", details: "1 book · 1 Assignment · no diagrams", discount: "Base Price", value: "1 Book (₹199)" },
-  { title: "3 Books", price: "₹499 total", details: "Up to 3 books/3 Assignment · Price: ₹166/book", discount: "-25%", value: "3 Books (₹499)" },
-  { title: "6 Books", price: "₹999 total", details: "1–6 books / 6 Assignment · Price: ₹150/book", discount:"-33%", value: "6 Books (₹999)" },
-  { title: "12 Books", price: "₹1999 total", details: "1–12 books / 12 Assignment · Price: ₹133/book", discount: "-40%", value: "12 Books (₹1999)" },
+  { title: "Single Book", price: "₹199", details: "1 assignment · no diagrams", discount: "Base Price", value: "1 Book" },
+  { title: "3 Books Pack", price: "₹499 Total", details: "Up to 3 assignments · Great Value", discount: "-25%", value: "3 Books" },
+  { title: "6 Books Pack", price: "₹999 Total", details: "1–6 assignments · Maximum Savings", discount:"-33%", value: "6 Books" },
+  { title: "12 Books Pack", price: "₹1999 Total", details: "1–12 assignments · Ultimate Plan", discount: "-40%", value: "12 Books" },
 ];
 
 const MIN_PAGES_PER_BOOK = 1;
@@ -140,7 +140,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     file: null,
     notes: "",
     address: "",
-    plan: "1 Book (₹199)", // Updated key
+    plan: "1 Book", // Updated key
     withDiagrams: false,
     couponCode: "", 
   });
@@ -217,13 +217,14 @@ export default function NotebookCompleteApp(): JSX.Element {
     return Object.keys(newErrors).length === 0;
   };
   
-  // Helper to extract clean price/book for WhatsApp message
-  const getPricePerBookDisplay = (planKey: PlanKey) => {
-      if (planKey.includes("₹199")) return "₹199/book";
-      if (planKey.includes("₹499")) return "₹166/book (total ₹499 for 3 books)";
-      if (planKey.includes("₹999")) return "₹150/book (total ₹999 for 6 books)";
-      if (planKey.includes("₹1999")) return "₹133/book (total ₹1999 for 12 books)";
-      return "—";
+  // Helper to extract clean plan info for WhatsApp message
+  const getPlanInfoForMessage = (planKey: PlanKey) => {
+      const basePrice = Math.round(PLAN_PRICES[planKey]);
+      if (planKey === "1 Book") return `Plan: ${planKey} (₹${basePrice}/book)`;
+      if (planKey === "3 Books") return `Plan: ${planKey} (Total ₹499)`;
+      if (planKey === "6 Books") return `Plan: ${planKey} (Total ₹999)`;
+      if (planKey === "12 Books") return `Plan: ${planKey} (Total ₹1999)`;
+      return `Plan: ${planKey} (Rate: ₹${basePrice}/book)`;
   };
 
 
@@ -238,7 +239,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
     const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
     const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${Math.round(initialBasePrice)})` : "—";
-    const basePlanMsg = getPricePerBookDisplay(form.plan);
+    const planInfo = getPlanInfoForMessage(form.plan);
 
     const fileMsg = form.file
       ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
@@ -246,7 +247,7 @@ export default function NotebookCompleteApp(): JSX.Element {
 
     const msg =
       `*NotebookComplete Order*%0A%0A` +
-      `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 Base Rate: ${basePlanMsg}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
+      `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
       `${fileMsg}%0A%0A` +
       `Please confirm availability and final quote.`;
 
@@ -258,7 +259,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-      Styles (unchanged)
+      Styles (Removed coupon info text)
       ======================== */
   const style = `
   :root{
@@ -372,7 +373,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     background: #f87171; /* Red */
     color: #7f1d1d;
   }
-  .coupon-info {
+  .coupon-info { /* This class is now unused but kept in style for safety */
     font-size: .85rem;
     color: #9ca3af;
     margin-left: 0.5rem;
@@ -495,7 +496,6 @@ export default function NotebookCompleteApp(): JSX.Element {
                     </div>
                   )}
                 </div>
-                <div className="coupon-info">Try code: **abhijeet** for 50% off!</div>
               </div>
 
 
