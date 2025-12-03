@@ -1,32 +1,32 @@
 import React, { JSX, useEffect, useMemo, useState } from "react";
 
 /* ============================
-   Constants & Types (UPDATED)
+   Constants & Types (UPDATED for simplified display)
    ============================ */
-// Updated to reflect per-book pricing model
+// Internal calculation still uses the precise price per book for accuracy
 const PLAN_PRICES = {
-  "1 Book (₹199/book)": 199,
-  "3 Books (₹166/book)": 499 / 3, // ~166.33
-  "6 Books (₹150/book)": 999 / 6, // ~166.5, keeping 150 for display
-  "12 Books (₹133/book)": 1999 / 12, // ~166.58, keeping 133 for display
+  "1 Book (₹199)": 199,
+  "3 Books (₹499)": 499 / 3, 
+  "6 Books (₹999)": 999 / 6, 
+  "12 Books (₹1999)": 1999 / 12, 
 } as const;
 
 type PlanKey = keyof typeof PLAN_PRICES;
 
 interface PricingPlan {
   title: string;
-  price: string;
+  price: string; // Simplified price display
   details: string;
   discount: string;
   value: PlanKey;
 }
 
-// Updated pricing plan details
+// Updated pricing plan details for simpler display
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199/book", details: "1 book · 1 Assignment · no diagrams", discount: "Base Price", value: "1 Book (₹199/book)" },
-  { title: "3 Books", price: "₹499 total", details: "Up to 3 books/3 Assignment · save ₹100", discount: "-25%", value: "3 Books (₹166/book)" },
-  { title: "6 Books", price: "₹999 total", details: "1–6 books / 6 Assignment · best value", discount="-33%", value: "6 Books (₹150/book)" },
-  { title: "12 Books", price: "₹1999 total", details: "1–12 books / 12 Assignment · max benefit", discount: "-40%", value: "12 Books (₹133/book)" },
+  { title: "Single Book", price: "₹199", details: "1 book · 1 Assignment · no diagrams", discount: "Base Price", value: "1 Book (₹199)" },
+  { title: "3 Books", price: "₹499 total", details: "Up to 3 books/3 Assignment · Price: ₹166/book", discount: "-25%", value: "3 Books (₹499)" },
+  { title: "6 Books", price: "₹999 total", details: "1–6 books / 6 Assignment · Price: ₹150/book", discount:"-33%", value: "6 Books (₹999)" },
+  { title: "12 Books", price: "₹1999 total", details: "1–12 books / 12 Assignment · Price: ₹133/book", discount: "-40%", value: "12 Books (₹1999)" },
 ];
 
 const MIN_PAGES_PER_BOOK = 1;
@@ -49,11 +49,11 @@ interface FormState {
   address: string;
   plan: PlanKey;
   withDiagrams: boolean;
-  couponCode: string; // New field
+  couponCode: string; 
 }
 
 /* ====================
-   Small Reusable UI (unchanged, just copy-paste for completeness)
+   Small Reusable UI (unchanged)
    ==================== */
 
 const InputField = (props: {
@@ -140,9 +140,9 @@ export default function NotebookCompleteApp(): JSX.Element {
     file: null,
     notes: "",
     address: "",
-    plan: "1 Book (₹199/book)",
+    plan: "1 Book (₹199)", // Updated key
     withDiagrams: false,
-    couponCode: "", // New state field
+    couponCode: "", 
   });
 
   const [quote, setQuote] = useState<number | null>(null);
@@ -216,6 +216,16 @@ export default function NotebookCompleteApp(): JSX.Element {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+  
+  // Helper to extract clean price/book for WhatsApp message
+  const getPricePerBookDisplay = (planKey: PlanKey) => {
+      if (planKey.includes("₹199")) return "₹199/book";
+      if (planKey.includes("₹499")) return "₹166/book (total ₹499 for 3 books)";
+      if (planKey.includes("₹999")) return "₹150/book (total ₹999 for 6 books)";
+      if (planKey.includes("₹1999")) return "₹133/book (total ₹1999 for 12 books)";
+      return "—";
+  };
+
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -227,8 +237,8 @@ export default function NotebookCompleteApp(): JSX.Element {
     const price = estimatedPrice;
     const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
     const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
-    const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${initialBasePrice})` : "—";
-    const basePlanMsg = `${form.plan.split('(')[0].trim()} @ ₹${basePricePerBook}/book`;
+    const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${Math.round(initialBasePrice)})` : "—";
+    const basePlanMsg = getPricePerBookDisplay(form.plan);
 
     const fileMsg = form.file
       ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
@@ -248,7 +258,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-      Styles: Added coupon input style
+      Styles (unchanged)
       ======================== */
   const style = `
   :root{
@@ -450,6 +460,7 @@ export default function NotebookCompleteApp(): JSX.Element {
               {/* Order Details */}
               <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
                 <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
+                {/* Select Field is updated to use the simplified keys */}
                 <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(PLAN_PRICES)} />
               </fieldset>
               
