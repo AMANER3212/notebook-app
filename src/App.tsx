@@ -1,13 +1,14 @@
 import React, { JSX, useEffect, useMemo, useState } from "react";
 
 /* ============================
-   Constants & Types (unchanged)
+   Constants & Types (UPDATED)
    ============================ */
+// Updated to reflect per-book pricing model
 const PLAN_PRICES = {
-  "Single (₹199)": 199,
-  "3-Month (₹499)": 499,
-  "6-Month (₹999)": 999,
-  "12-Month (₹1999)": 1999,
+  "1 Book (₹199/book)": 199,
+  "3 Books (₹166/book)": 499 / 3, // ~166.33
+  "6 Books (₹150/book)": 999 / 6, // ~166.5, keeping 150 for display
+  "12 Books (₹133/book)": 1999 / 12, // ~166.58, keeping 133 for display
 } as const;
 
 type PlanKey = keyof typeof PLAN_PRICES;
@@ -20,12 +21,21 @@ interface PricingPlan {
   value: PlanKey;
 }
 
+// Updated pricing plan details
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Month", price: "₹199", details: "1 month · 1 book/1 Assignment · no diagrams", discount: "-20%", value: "Single (₹199)" },
-  { title: "3 Months", price: "₹499", details: "Up to 3 books/3 Assignment (per month) · save ₹100", discount: "-25%", value: "3-Month (₹499)" },
-  { title: "6 Months", price: "₹999", details: "1–6 books / 6 Assignment (per month) · best value", discount: "-33%", value: "6-Month (₹999)" },
-  { title: "12 Months", price: "₹1999", details: "1–12 books / 12 Assignment (per month) · max benefit", discount: "-40%", value: "12-Month (₹1999)" },
+  { title: "Single Book", price: "₹199/book", details: "1 book · 1 Assignment · no diagrams", discount: "Base Price", value: "1 Book (₹199/book)" },
+  { title: "3 Books", price: "₹499 total", details: "Up to 3 books/3 Assignment · save ₹100", discount: "-25%", value: "3 Books (₹166/book)" },
+  { title: "6 Books", price: "₹999 total", details: "1–6 books / 6 Assignment · best value", discount="-33%", value: "6 Books (₹150/book)" },
+  { title: "12 Books", price: "₹1999 total", details: "1–12 books / 12 Assignment · max benefit", discount: "-40%", value: "12 Books (₹133/book)" },
 ];
+
+const MIN_PAGES_PER_BOOK = 1;
+const DIAGRAM_MARKUP_PERCENTAGE = 0.2; // 20%
+const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
+
+// Coupon constants
+const COUPON_CODE = "abhijeet";
+const COUPON_DISCOUNT = 0.50; // 50%
 
 interface FormState {
   name: string;
@@ -39,10 +49,11 @@ interface FormState {
   address: string;
   plan: PlanKey;
   withDiagrams: boolean;
+  couponCode: string; // New field
 }
 
 /* ====================
-   Small Reusable UI
+   Small Reusable UI (unchanged, just copy-paste for completeness)
    ==================== */
 
 const InputField = (props: {
@@ -108,14 +119,14 @@ const PricingCard = (props: {
         <h4 className="pricing-card-title">{title}</h4>
         <div className="pricing-card-price">{price}</div>
         <div className="pricing-card-details">{details}</div>
-        <div className="pricing-card-discount">{discount} OFF</div>
+        <div className="pricing-card-discount">{discount}</div>
       </div>
     </button>
   );
 };
 
 /* =========================
-   Main Component (Refined)
+   Main Component (Refined & UPDATED)
    ========================= */
 
 export default function NotebookCompleteApp(): JSX.Element {
@@ -129,13 +140,45 @@ export default function NotebookCompleteApp(): JSX.Element {
     file: null,
     notes: "",
     address: "",
-    plan: "Single (₹199)",
+    plan: "1 Book (₹199/book)",
     withDiagrams: false,
+    couponCode: "", // New state field
   });
 
   const [quote, setQuote] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check and apply coupon
+  const isCouponApplied = useMemo(() => {
+    return form.couponCode.toLowerCase() === COUPON_CODE;
+  }, [form.couponCode]);
+  
+  // Calculate base price before diagrams and coupon
+  const basePricePerBook = PLAN_PRICES[form.plan] ?? 199;
+  const initialBasePrice = basePricePerBook * form.pages;
+
+  // Calculate final estimated price
+  const estimatedPrice = useMemo(() => {
+    // 1. Calculate price with diagrams markup
+    const markupPrice = initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1);
+
+    // 2. Apply coupon discount if valid
+    let finalPrice = markupPrice;
+    if (isCouponApplied) {
+      finalPrice = Math.round(markupPrice * (1 - COUPON_DISCOUNT));
+    }
+
+    return finalPrice;
+  }, [initialBasePrice, form.withDiagrams, isCouponApplied]);
+  
+  // Check for free key chain eligibility (based on price *before* coupon)
+  const isKeyChainEligible = initialBasePrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
+
+
+  useEffect(() => {
+    setQuote(estimatedPrice);
+  }, [estimatedPrice]);
 
   // unified change handler (handles file and regular inputs)
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
@@ -156,7 +199,7 @@ export default function NotebookCompleteApp(): JSX.Element {
       setForm(s => ({ ...s, pages: num }));
       return;
     }
-
+    
     // common update
     setForm(s => ({ ...s, [name]: target.value } as unknown as FormState));
   }
@@ -165,20 +208,11 @@ export default function NotebookCompleteApp(): JSX.Element {
     setForm(s => ({ ...s, withDiagrams: e.target.checked }));
   }
 
-  const estimatedPrice = useMemo(() => {
-    const basePrice = PLAN_PRICES[form.plan] ?? 199;
-    return form.withDiagrams ? Math.round(basePrice * 1.2) : basePrice;
-  }, [form.plan, form.withDiagrams]);
-
-  useEffect(() => {
-    setQuote(estimatedPrice);
-  }, [estimatedPrice]);
-
   const validateForm = () => {
     const newErrors: Record<string, string | null> = {};
     if (!form.name.trim()) newErrors.name = "Name is required.";
     if (!/^\d{10}$/.test(form.phone.trim())) newErrors.phone = "Enter a valid 10-digit phone.";
-    if (Number.isNaN(form.pages) || form.pages < 1) newErrors.pages = "Pages must be at least 1.";
+    if (Number.isNaN(form.pages) || form.pages < MIN_PAGES_PER_BOOK) newErrors.pages = `Pages must be at least ${MIN_PAGES_PER_BOOK}.`;
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -192,6 +226,9 @@ export default function NotebookCompleteApp(): JSX.Element {
 
     const price = estimatedPrice;
     const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
+    const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
+    const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${initialBasePrice})` : "—";
+    const basePlanMsg = `${form.plan.split('(')[0].trim()} @ ₹${basePricePerBook}/book`;
 
     const fileMsg = form.file
       ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
@@ -199,7 +236,7 @@ export default function NotebookCompleteApp(): JSX.Element {
 
     const msg =
       `*NotebookComplete Order*%0A%0A` +
-      `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Pages: ${form.pages}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A💰 Plan: ${form.plan}%0A📝 Notes: ${form.notes || "—"}%0A💵 Estimated Price: ₹${price}%0A%0A` +
+      `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 Base Rate: ${basePlanMsg}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
       `${fileMsg}%0A%0A` +
       `Please confirm availability and final quote.`;
 
@@ -211,9 +248,8 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-     Styles: only form cleaned
-     (keeps your original theme)
-     ======================== */
+      Styles: Added coupon input style
+      ======================== */
   const style = `
   :root{
     --bg: #0f0f0f;
@@ -292,6 +328,45 @@ export default function NotebookCompleteApp(): JSX.Element {
   .quote-box-prominent{background:#1f1f1f;border:2px solid var(--accent);padding:1.25rem;border-radius:12px;text-align:center}
   .quote-box-prominent span{display:block;font-weight:700;color:#fbbf24}
   .quote-box-prominent strong{display:block;font-size:1.8rem;color:#fde68a;margin-top:.35rem}
+  
+  .coupon-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid #333;
+    border-radius: 10px;
+    background: #0d0d0d;
+    padding: 0.25rem;
+  }
+  .coupon-input-container input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    padding: 0.55rem;
+    color: white;
+  }
+  .coupon-input-container input:focus {
+    outline: none;
+  }
+  .coupon-status {
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .coupon-applied {
+    background: #10b981; /* Green */
+    color: #064e3b;
+  }
+  .coupon-invalid {
+    background: #f87171; /* Red */
+    color: #7f1d1d;
+  }
+  .coupon-info {
+    font-size: .85rem;
+    color: #9ca3af;
+    margin-left: 0.5rem;
+  }
 
   .submit-button{width:100%;padding:1rem;border-radius:10px;background:var(--accent);color:black;font-weight:800;border:none;cursor:pointer;box-shadow:0 6px #d97706;transition:transform .08s}
   .submit-button:active{transform:translateY(2px)}
@@ -308,7 +383,7 @@ export default function NotebookCompleteApp(): JSX.Element {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div className="logo" aria-hidden>NC</div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 18,color: "#f59e0b"  }}>NotebookComplete</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: "#f59e0b" }}>NotebookComplete</div>
               <div style={{ color: "#6b7280", fontSize: 13 }}>Fast · Neat · Affordable</div>
             </div>
           </div>
@@ -317,11 +392,11 @@ export default function NotebookCompleteApp(): JSX.Element {
         <main>
           <section className="hero-section" role="region" aria-labelledby="hero-heading">
             <div className="hero-text">
-              <h2 id="hero-heading">Need your journals completed? We do it fast & neatly.</h2>
+              <h2 id="hero-heading">Need your books/assignments completed? We do it fast & neatly.</h2>
               <p>Choose your plan, upload details, and get it done — without stress.</p>
               <ul style={{ marginTop: 12, color: "#374151", paddingLeft: 18 }}>
                 <li>✔️ Neat handwriting and proper formatting</li>
-                <li>✔️ <strong>Optional: Add diagrams/printouts (+20% fee)</strong></li>
+                <li>✔️ **Optional: Add diagrams/printouts (+20% fee)**</li>
                 <li>✔️ Local delivery or WhatsApp photo copy</li>
               </ul>
             </div>
@@ -359,34 +434,61 @@ export default function NotebookCompleteApp(): JSX.Element {
             <h3 id="order-heading" style={{ marginBottom: 8, fontSize: 18, fontWeight: 700 }}>Place your order</h3>
 
             <form className="form-container" onSubmit={handleSubmit} noValidate>
+              {/* Personal Info */}
               <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
                 <InputField name="name" value={form.name} onChange={handleChange} placeholder="Your name (Required)" required error={errors.name} />
                 <InputField name="phone" value={form.phone} onChange={handleChange} placeholder="Phone (WhatsApp, 10-digits Required)" type="tel" required error={errors.phone} />
               </fieldset>
 
+              {/* Academic Info */}
               <fieldset className="fieldset-grid-3" style={{ marginBottom: 8 }}>
                 <InputField name="college" value={form.college} onChange={handleChange} placeholder="College / School (Optional)" />
                 <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class / Year (Optional)" />
                 <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
               </fieldset>
 
+              {/* Order Details */}
               <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
-                <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Pages (Min 1)" min={1} required error={errors.pages} />
+                <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
                 <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(PLAN_PRICES)} />
               </fieldset>
+              
               <InputField
-  name="address"
-  value={form.address}
-  onChange={handleChange}
-  placeholder="Your Address (Optional)"
-/>
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                placeholder="Your Address (Optional, for physical delivery)"
+              />
 
-
+              {/* Diagram Toggle */}
               <div className="toggle-row" style={{ marginBottom: 8 }}>
                 <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+20% Total Price)</label>
                 <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
               </div>
 
+              {/* Coupon Code Input */}
+              <div style={{ marginBottom: 8 }}>
+                <label htmlFor="coupon-code" className="file-upload-label" style={{ fontWeight: 400, color: "#d1d5db" }}>
+                  Coupon Code
+                </label>
+                <div className="coupon-input-container">
+                  <InputField
+                    name="couponCode"
+                    value={form.couponCode}
+                    onChange={handleChange}
+                    placeholder="Enter Coupon Code"
+                  />
+                  {form.couponCode.length > 0 && (
+                    <div className={`coupon-status ${isCouponApplied ? "coupon-applied" : "coupon-invalid"}`}>
+                      {isCouponApplied ? "50% OFF Applied" : "Invalid Coupon"}
+                    </div>
+                  )}
+                </div>
+                <div className="coupon-info">Try code: **abhijeet** for 50% off!</div>
+              </div>
+
+
+              {/* File Upload */}
               <div style={{ marginBottom: 8 }}>
                 <label htmlFor="file-upload" className="file-upload-label">Upload Syllabus / Content (Optional - max file size 50MB)</label>
                 <input id="file-upload" type="file" name="file" onChange={handleChange as any} className="file-input" />
@@ -395,14 +497,26 @@ export default function NotebookCompleteApp(): JSX.Element {
                 </div>
               </div>
 
+              {/* Extra Notes */}
               <div>
                 <textarea name="notes" value={form.notes} onChange={handleChange as any} placeholder="Any extra notes or requirements (pen color, formatting, delivery)..." className="textarea-field" style={{ width: "100%", borderRadius: 10, padding: 12, minHeight: 96 }} />
               </div>
 
+              {/* Quote and Submit */}
               <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
                 <div className="quote-box-prominent" aria-live="polite">
                   <span>Your Estimated Quote:</span>
                   <strong>₹{quote}</strong>
+                  {isKeyChainEligible && (
+                    <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                        🎉 FREE Key Chain Included! (Order above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
+                    </div>
+                  )}
+                  {isCouponApplied && (
+                    <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                        Discount Applied! Total Saved: ₹{Math.round(initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT)}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: 12 }}>
