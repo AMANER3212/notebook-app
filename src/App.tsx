@@ -1,27 +1,26 @@
 import React, { JSX, useEffect, useMemo, useState } from "react";
 
 /* ============================
-   Constants & Types (UPDATED for simplified display)
+   Constants & Types 
    ============================ */
 // Internal calculation still uses the precise price per book for accuracy
 const PLAN_PRICES = {
-  "1 Book": 199, // Removed (₹199)
-  "3 Books": 499 / 3, 
-  "6 Books": 999 / 6, 
-  "12 Books": 1999 / 12, 
+  "1 Book": 199, 
+  "3 Books": 499 / 3, // ~166.33
+  "6 Books": 999 / 6, // 166.5
+  "12 Books": 1999 / 12, // ~166.58
 } as const;
 
 type PlanKey = keyof typeof PLAN_PRICES;
 
 interface PricingPlan {
   title: string;
-  price: string; // Simplified price display
-  details: string; // Simplified details
+  price: string; 
+  details: string; 
   discount: string;
   value: PlanKey;
 }
 
-// Updated pricing plan details for much simpler display
 const PRICING_PLANS: PricingPlan[] = [
   { title: "Single Book", price: "₹199", details: "1 assignment · no diagrams", discount: "Base Price", value: "1 Book" },
   { title: "3 Books Pack", price: "₹499 Total", details: "Up to 3 assignments · Great Value", discount: "-25%", value: "3 Books" },
@@ -40,16 +39,22 @@ const COUPON_DISCOUNT = 0.50; // 50%
 interface FormState {
   name: string;
   phone: string;
-  college: string;
-  className: string;
-  subject: string;
-  pages: number;
-  file: File | null;
-  notes: string;
-  address: string;
-  plan: PlanKey;
-  withDiagrams: boolean;
-  couponCode: string; 
+  college: string; // Order specific
+  className: string; // Order specific
+  subject: string; // Order specific
+  pages: number; // Order specific
+  file: File | null; // Order specific
+  notes: string; // Both
+  address: string; // Both
+  plan: PlanKey; // Order specific
+  withDiagrams: boolean; // Order specific
+  couponCode: string; // Order specific
+  
+  // NEW PARTNER FIELDS
+  isPartnerEnquiry: boolean;
+  orgName: string;
+  partnerType: string;
+  businessDetails: string;
 }
 
 /* ====================
@@ -126,7 +131,7 @@ const PricingCard = (props: {
 };
 
 /* =========================
-   Main Component (Refined & UPDATED)
+   Main Component (with Partner Option)
    ========================= */
 
 export default function NotebookCompleteApp(): JSX.Element {
@@ -140,51 +145,49 @@ export default function NotebookCompleteApp(): JSX.Element {
     file: null,
     notes: "",
     address: "",
-    plan: "1 Book", // Updated key
+    plan: "1 Book",
     withDiagrams: false,
-    couponCode: "", 
+    couponCode: "",
+    isPartnerEnquiry: false,
+    orgName: "",
+    partnerType: "Individual",
+    businessDetails: ""
   });
 
   const [quote, setQuote] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check and apply coupon
+  // ORDER LOGIC
   const isCouponApplied = useMemo(() => {
     return form.couponCode.toLowerCase() === COUPON_CODE;
   }, [form.couponCode]);
   
-  // Calculate base price before diagrams and coupon
   const basePricePerBook = PLAN_PRICES[form.plan] ?? 199;
   const initialBasePrice = basePricePerBook * form.pages;
 
-  // Calculate final estimated price
   const estimatedPrice = useMemo(() => {
-    // 1. Calculate price with diagrams markup
     const markupPrice = initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1);
-
-    // 2. Apply coupon discount if valid
     let finalPrice = markupPrice;
     if (isCouponApplied) {
-      finalPrice = Math.round(markupPrice * (1 - COUPON_DISCOUNT));
+      finalPrice = markupPrice * (1 - COUPON_DISCOUNT);
     }
-
-    return finalPrice;
+    return Math.round(finalPrice);
   }, [initialBasePrice, form.withDiagrams, isCouponApplied]);
   
-  // Check for free key chain eligibility (based on price *before* coupon)
   const isKeyChainEligible = initialBasePrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
 
+  const savingsAmount = (initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT);
 
   useEffect(() => {
     setQuote(estimatedPrice);
   }, [estimatedPrice]);
+  // END ORDER LOGIC
 
-  // unified change handler (handles file and regular inputs)
+  // Handlers
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const target = e.target as HTMLInputElement;
     const { name } = target;
-    // clear the field-specific error
     setErrors(prev => ({ ...prev, [name]: null }));
 
     if (target.type === "file") {
@@ -200,7 +203,12 @@ export default function NotebookCompleteApp(): JSX.Element {
       return;
     }
     
-    // common update
+    // Toggle handler for partner mode
+    if (name === "isPartnerEnquiry") {
+        setForm(s => ({ ...s, isPartnerEnquiry: (target as HTMLInputElement).checked }));
+        return;
+    }
+    
     setForm(s => ({ ...s, [name]: target.value } as unknown as FormState));
   }
 
@@ -212,19 +220,24 @@ export default function NotebookCompleteApp(): JSX.Element {
     const newErrors: Record<string, string | null> = {};
     if (!form.name.trim()) newErrors.name = "Name is required.";
     if (!/^\d{10}$/.test(form.phone.trim())) newErrors.phone = "Enter a valid 10-digit phone.";
-    if (Number.isNaN(form.pages) || form.pages < MIN_PAGES_PER_BOOK) newErrors.pages = `Pages must be at least ${MIN_PAGES_PER_BOOK}.`;
+    
+    if (form.isPartnerEnquiry) {
+        if (!form.orgName.trim()) newErrors.orgName = "Organization Name is required for partnership.";
+        if (!form.businessDetails.trim()) newErrors.businessDetails = "Please describe your business.";
+    } else {
+        if (Number.isNaN(form.pages) || form.pages < MIN_PAGES_PER_BOOK) newErrors.pages = `Pages must be at least ${MIN_PAGES_PER_BOOK}.`;
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  // Helper to extract clean plan info for WhatsApp message
+  // Helper for WhatsApp message
   const getPlanInfoForMessage = (planKey: PlanKey) => {
-      const basePrice = Math.round(PLAN_PRICES[planKey]);
-      if (planKey === "1 Book") return `Plan: ${planKey} (₹${basePrice}/book)`;
-      if (planKey === "3 Books") return `Plan: ${planKey} (Total ₹499)`;
-      if (planKey === "6 Books") return `Plan: ${planKey} (Total ₹999)`;
-      if (planKey === "12 Books") return `Plan: ${planKey} (Total ₹1999)`;
-      return `Plan: ${planKey} (Rate: ₹${basePrice}/book)`;
+      const basePrice = Math.round(PLAN_PRICES[planKey] * 100) / 100;
+      const planTitle = PRICING_PLANS.find(p => p.value === planKey)?.price.replace(' Total', '') || `₹${basePrice * 3} Total`;
+
+      if (planKey === "1 Book") return `Plan: ${planKey} (Rate: ₹${basePrice}/book)`;
+      return `Plan: ${planKey} (${planTitle} - Effective Rate: ₹${basePrice.toFixed(0)}/book)`;
   };
 
 
@@ -235,21 +248,37 @@ export default function NotebookCompleteApp(): JSX.Element {
     }
     setIsSubmitting(true);
 
-    const price = estimatedPrice;
-    const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
-    const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
-    const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${Math.round(initialBasePrice)})` : "—";
-    const planInfo = getPlanInfoForMessage(form.plan);
+    let msg = "";
+    
+    if (form.isPartnerEnquiry) {
+        // PARTNER MESSAGE
+        msg = 
+            `*NotebookComplete PARTNERSHIP Enquiry*%0A%0A` +
+            `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A` +
+            `🏢 Organization: ${form.orgName}%0A` +
+            `💼 Partner Type: ${form.partnerType}%0A` +
+            `📍 Location/Address: ${form.address || "—"}%0A%0A` +
+            `📝 *Business Details & Proposal:*%0A${form.businessDetails || "—"}%0A%0A` +
+            `We will contact you shortly to discuss your proposal.`
+    } else {
+        // ORDER MESSAGE
+        const price = estimatedPrice;
+        const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
+        const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
+        const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${Math.round(initialBasePrice)})` : "—";
+        const planInfo = getPlanInfoForMessage(form.plan);
 
-    const fileMsg = form.file
-      ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
-      : "📎 File: None selected. *Please upload your syllabus/content in our chat.*";
+        const fileMsg = form.file
+          ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
+          : "📎 File: None selected. *Please upload your syllabus/content in our chat.*";
 
-    const msg =
-      `*NotebookComplete Order*%0A%0A` +
-      `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
-      `${fileMsg}%0A%0A` +
-      `Please confirm availability and final quote.`;
+        msg =
+          `*NotebookComplete Order*%0A%0A` +
+          `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
+          `*Total Savings from Coupon: ₹${Math.round(savingsAmount)}*%0A%0A` +
+          `${fileMsg}%0A%0A` +
+          `Please confirm availability and final quote.`;
+    }
 
     const whatsappUrl = `https://wa.me/911234567890?text=${msg}`;
     window.open(whatsappUrl, "_blank");
@@ -259,7 +288,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-      Styles (Removed coupon info text)
+      Styles (unchanged)
       ======================== */
   const style = `
   :root{
@@ -373,7 +402,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     background: #f87171; /* Red */
     color: #7f1d1d;
   }
-  .coupon-info { /* This class is now unused but kept in style for safety */
+  .coupon-info { 
     font-size: .85rem;
     color: #9ca3af;
     margin-left: 0.5rem;
@@ -427,115 +456,190 @@ export default function NotebookCompleteApp(): JSX.Element {
             </div>
           </section>
 
-          <section id="pricing" className="pricing-section" aria-label="Pricing plans">
-            {PRICING_PLANS.map((p) => (
-              <PricingCard
-                key={p.title}
-                title={p.title}
-                price={p.price}
-                details={p.details}
-                discount={p.discount}
-                isSelected={form.plan === p.value}
-                onClick={() => setForm(s => ({ ...s, plan: p.value }))}
-              />
-            ))}
-          </section>
-
           <section id="order" className="order-section" aria-labelledby="order-heading">
-            <h3 id="order-heading" style={{ marginBottom: 8, fontSize: 18, fontWeight: 700 }}>Place your order</h3>
+            
+            <div className="toggle-row" style={{ marginBottom: 16, background: '#1c1c1c', borderColor: '#555' }}>
+                <label htmlFor="partner-toggle" style={{ color: '#ccc' }}>
+                    Are you looking to **Partner** with us? Click here!
+                </label>
+                <input 
+                    id="partner-toggle" 
+                    type="checkbox" 
+                    name="isPartnerEnquiry" 
+                    checked={form.isPartnerEnquiry} 
+                    onChange={handleChange} 
+                    style={{ width: 18, height: 18, accentColor: "#10b981" }} 
+                />
+            </div>
+          
+            <h3 id="order-heading" style={{ marginBottom: 8, fontSize: 18, fontWeight: 700 }}>
+                {form.isPartnerEnquiry ? "Partner Enquiry Form" : "Place your order"}
+            </h3>
 
             <form className="form-container" onSubmit={handleSubmit} noValidate>
-              {/* Personal Info */}
+              
+              {/* Common Fields: Name and Phone */}
               <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
                 <InputField name="name" value={form.name} onChange={handleChange} placeholder="Your name (Required)" required error={errors.name} />
                 <InputField name="phone" value={form.phone} onChange={handleChange} placeholder="Phone (WhatsApp, 10-digits Required)" type="tel" required error={errors.phone} />
               </fieldset>
-
-              {/* Academic Info */}
-              <fieldset className="fieldset-grid-3" style={{ marginBottom: 8 }}>
-                <InputField name="college" value={form.college} onChange={handleChange} placeholder="College / School (Optional)" />
-                <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class / Year (Optional)" />
-                <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
-              </fieldset>
-
-              {/* Order Details */}
-              <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
-                <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
-                {/* Select Field is updated to use the simplified keys */}
-                <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(PLAN_PRICES)} />
-              </fieldset>
               
-              <InputField
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                placeholder="Your Address (Optional, for physical delivery)"
-              />
+              {form.isPartnerEnquiry ? (
+                /* ========================
+                   PARTNER ENQUIRY FIELDS
+                   ======================== */
+                <>
+                    <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
+                        <InputField name="orgName" value={form.orgName} onChange={handleChange} placeholder="Organization/Institute Name (Required)" required error={errors.orgName} />
+                        <SelectField 
+                            name="partnerType" 
+                            value={form.partnerType} 
+                            onChange={handleChange as any} 
+                            options={["Individual", "Institute/College", "Agent/Agency", "Other Business"]} 
+                        />
+                    </fieldset>
+                    
+                    <InputField
+                        name="address"
+                        value={form.address}
+                        onChange={handleChange}
+                        placeholder="Your City/Location (Required for partnership)"
+                        required
+                    />
 
-              {/* Diagram Toggle */}
-              <div className="toggle-row" style={{ marginBottom: 8 }}>
-                <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+20% Total Price)</label>
-                <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
-              </div>
+                    <div>
+                        <textarea 
+                            name="businessDetails" 
+                            value={form.businessDetails} 
+                            onChange={handleChange as any} 
+                            placeholder="Tell us about your business/role and how you want to partner with us (Required)" 
+                            className="textarea-field" 
+                            style={{ width: "100%", borderRadius: 10, padding: 12, minHeight: 120 }} 
+                            required
+                            aria-invalid={!!errors.businessDetails}
+                        />
+                         {errors.businessDetails && <div className="input-error-text">{errors.businessDetails}</div>}
+                    </div>
 
-              {/* Coupon Code Input */}
-              <div style={{ marginBottom: 8 }}>
-                <label htmlFor="coupon-code" className="file-upload-label" style={{ fontWeight: 400, color: "#d1d5db" }}>
-                  Coupon Code
-                </label>
-                <div className="coupon-input-container">
+                    <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
+                        <div className="quote-box-prominent" style={{borderColor: '#10b981'}}>
+                            <span>Partnership Application:</span>
+                            <strong>We will reach out to you!</strong>
+                            <div style={{ color: '#d1d5db', fontWeight: 400, marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                                A dedicated team member will contact you on WhatsApp to discuss the opportunity.
+                            </div>
+                        </div>
+
+                        <button type="submit" disabled={isSubmitting} className="submit-button" aria-busy={isSubmitting} style={{background: '#10b981', boxShadow: '0 6px #059669'}}>
+                            {isSubmitting ? "Sending Enquiry..." : `Submit Partnership Enquiry`}
+                        </button>
+                    </div>
+                </>
+              ) : (
+                /* ========================
+                   ORDERING FIELDS
+                   ======================== */
+                <>
+                  <section id="pricing-order" className="pricing-section" aria-label="Pricing plans" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', margin: '0 0 16px 0', padding: 0 }}>
+                    {PRICING_PLANS.map((p) => (
+                      <PricingCard
+                        key={p.title}
+                        title={p.title}
+                        price={p.price}
+                        details={p.details}
+                        discount={p.discount}
+                        isSelected={form.plan === p.value}
+                        onClick={() => setForm(s => ({ ...s, plan: p.value }))}
+                      />
+                    ))}
+                  </section>
+                
+                  {/* Academic Info */}
+                  <fieldset className="fieldset-grid-3" style={{ marginBottom: 8 }}>
+                    <InputField name="college" value={form.college} onChange={handleChange} placeholder="College / School (Optional)" />
+                    <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class / Year (Optional)" />
+                    <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
+                  </fieldset>
+
+                  {/* Order Details */}
+                  <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
+                    <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
+                    <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(PLAN_PRICES)} />
+                  </fieldset>
+                  
                   <InputField
-                    name="couponCode"
-                    value={form.couponCode}
+                    name="address"
+                    value={form.address}
                     onChange={handleChange}
-                    placeholder="Enter Coupon Code"
+                    placeholder="Your Full Address (Optional, for physical delivery)"
                   />
-                  {form.couponCode.length > 0 && (
-                    <div className={`coupon-status ${isCouponApplied ? "coupon-applied" : "coupon-invalid"}`}>
-                      {isCouponApplied ? "50% OFF Applied" : "Invalid Coupon"}
+
+                  {/* Diagram Toggle */}
+                  <div className="toggle-row" style={{ marginBottom: 8 }}>
+                    <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+20% Total Price)</label>
+                    <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
+                  </div>
+
+                  {/* Coupon Code Input */}
+                  <div style={{ marginBottom: 8 }}>
+                    <label htmlFor="coupon-code" className="file-upload-label" style={{ fontWeight: 400, color: "#d1d5db" }}>
+                      Coupon Code (Optional)
+                    </label>
+                    <div className="coupon-input-container">
+                      <InputField
+                        name="couponCode"
+                        value={form.couponCode}
+                        onChange={handleChange}
+                        placeholder="Enter Coupon Code"
+                      />
+                      {form.couponCode.length > 0 && (
+                        <div className={`coupon-status ${isCouponApplied ? "coupon-applied" : "coupon-invalid"}`}>
+                          {isCouponApplied ? "50% OFF Applied" : "Invalid Coupon"}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
 
-              {/* File Upload */}
-              <div style={{ marginBottom: 8 }}>
-                <label htmlFor="file-upload" className="file-upload-label">Upload Syllabus / Content (Optional - max file size 50MB)</label>
-                <input id="file-upload" type="file" name="file" onChange={handleChange as any} className="file-input" />
-                <div style={{ color: "#6b7280", fontSize: 13, marginTop: 6 }}>
-                  <strong>Note:</strong> The file will be referenced in your order message. You must manually send the file on WhatsApp after placing the order.
-                </div>
-              </div>
-
-              {/* Extra Notes */}
-              <div>
-                <textarea name="notes" value={form.notes} onChange={handleChange as any} placeholder="Any extra notes or requirements (pen color, formatting, delivery)..." className="textarea-field" style={{ width: "100%", borderRadius: 10, padding: 12, minHeight: 96 }} />
-              </div>
-
-              {/* Quote and Submit */}
-              <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
-                <div className="quote-box-prominent" aria-live="polite">
-                  <span>Your Estimated Quote:</span>
-                  <strong>₹{quote}</strong>
-                  {isKeyChainEligible && (
-                    <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                        🎉 FREE Key Chain Included! (Order above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
+                  {/* File Upload */}
+                  <div style={{ marginBottom: 8 }}>
+                    <label htmlFor="file-upload" className="file-upload-label">Upload Syllabus / Content (Optional - max file size 50MB)</label>
+                    <input id="file-upload" type="file" name="file" onChange={handleChange as any} className="file-input" />
+                    <div style={{ color: "#6b7280", fontSize: 13, marginTop: 6 }}>
+                      <strong>Note:</strong> File transfer is completed on WhatsApp after submitting this form.
                     </div>
-                  )}
-                  {isCouponApplied && (
-                    <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                        Discount Applied! Total Saved: ₹{Math.round(initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT)}
-                    </div>
-                  )}
-                </div>
+                  </div>
 
-                <div style={{ display: "flex", gap: 12 }}>
-                  <button type="submit" disabled={isSubmitting} className="submit-button" aria-busy={isSubmitting}>
-                    {isSubmitting ? "Sending..." : `Send Order on WhatsApp (Est. ₹${quote})`}
-                  </button>
-                </div>
-              </div>
+                  {/* Extra Notes */}
+                  <div>
+                    <textarea name="notes" value={form.notes} onChange={handleChange as any} placeholder="Any extra notes or requirements (pen color, formatting, delivery)..." className="textarea-field" style={{ width: "100%", borderRadius: 10, padding: 12, minHeight: 96 }} />
+                  </div>
+
+                  {/* Quote and Submit */}
+                  <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
+                    <div className="quote-box-prominent" aria-live="polite">
+                      <span>Your Estimated Quote:</span>
+                      <strong>₹{quote}</strong>
+                      {isKeyChainEligible && (
+                        <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                            🎉 FREE Key Chain Included! (Order above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
+                        </div>
+                      )}
+                      {isCouponApplied && (
+                        <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                            Discount Applied! Total Saved: ₹{Math.round(savingsAmount)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <button type="submit" disabled={isSubmitting} className="submit-button" aria-busy={isSubmitting}>
+                        {isSubmitting ? "Sending Order..." : `Send Order on WhatsApp (Est. ₹${quote})`}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </form>
           </section>
 
