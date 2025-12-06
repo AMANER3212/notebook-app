@@ -3,12 +3,12 @@ import React, { JSX, useEffect, useMemo, useState } from "react";
 /* ============================
    Constants & Types 
    ============================ */
-// Internal calculation still uses the precise price per book for accuracy
+// Stores the TOTAL fixed price for each plan, regardless of 'pages'
 const PLAN_PRICES = {
   "1 Book": 199, 
-  "3 Books": 499 / 3, // ~166.33
-  "6 Books": 999 / 6, // 166.5
-  "12 Books": 1999 / 12, // ~166.58
+  "3 Books": 499,
+  "6 Books": 999,
+  "12 Books": 1999,
 } as const;
 
 type PlanKey = keyof typeof PLAN_PRICES;
@@ -22,13 +22,13 @@ interface PricingPlan {
 }
 
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199", details: "1 assignment · no diagrams", discount: "Base Price", value: "1 Book" },
-  { title: "3 Books Pack", price: "₹499 Total", details: "Up to 3 assignments · Great Value", discount: "-25%", value: "3 Books" },
-  { title: "6 Books Pack", price: "₹999 Total", details: "1–6 assignments · Maximum Savings", discount:"-33%", value: "6 Books" },
-  { title: "12 Books Pack", price: "₹1999 Total", details: "1–12 assignments · Ultimate Plan", discount: "-40%", value: "12 Books" },
+  { title: "Single Book", price: "₹199 Total", details: "1 assignment · no diagrams", discount: "Base Price", value: "1 Book" },
+  { title: "3 Books Pack", price: "₹499 Total", details: "Up to 3 assignments · Great Value", discount: "-25% (per book)", value: "3 Books" },
+  { title: "6 Books Pack", price: "₹999 Total", details: "1–6 assignments · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
+  { title: "12 Books Pack", price: "₹1999 Total", details: "1–12 assignments · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
 ];
 
-const MIN_PAGES_PER_BOOK = 1;
+const MIN_PAGES_PER_BOOK = 1; // Kept for validation, but doesn't affect price
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2; // 20%
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
@@ -163,21 +163,29 @@ export default function NotebookCompleteApp(): JSX.Element {
     return form.couponCode.toLowerCase() === COUPON_CODE;
   }, [form.couponCode]);
   
-  const basePricePerBook = PLAN_PRICES[form.plan] ?? 199;
-  const initialBasePrice = basePricePerBook * form.pages;
+  // 1. Get the fixed total price for the selected plan
+  const planFixedPrice = PLAN_PRICES[form.plan] ?? 199;
+  
+  // 2. The base price for calculation is the plan's fixed total price
+  const initialBasePrice = planFixedPrice; // No longer depends on form.pages
 
   const estimatedPrice = useMemo(() => {
-    const markupPrice = initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1);
+    // 3. Apply the diagram markup to the fixed price
+    const markupPrice = planFixedPrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1);
     let finalPrice = markupPrice;
+    
+    // 4. Apply coupon discount
     if (isCouponApplied) {
       finalPrice = markupPrice * (1 - COUPON_DISCOUNT);
     }
     return Math.round(finalPrice);
-  }, [initialBasePrice, form.withDiagrams, isCouponApplied]);
+  }, [planFixedPrice, form.withDiagrams, isCouponApplied]);
   
-  const isKeyChainEligible = initialBasePrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
+  // 5. Keychain eligibility now depends on the plan's fixed price
+  const isKeyChainEligible = planFixedPrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
 
-  const savingsAmount = (initialBasePrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT);
+  // 6. Savings calculation uses the calculated markup price before discount
+  const savingsAmount = (planFixedPrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT);
 
   useEffect(() => {
     setQuote(estimatedPrice);
@@ -198,6 +206,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     }
 
     if (name === "pages") {
+      // Pages is still used for the order details message, so we keep the handler
       const num = Number(target.value || 0);
       setForm(s => ({ ...s, pages: num }));
       return;
@@ -225,19 +234,21 @@ export default function NotebookCompleteApp(): JSX.Element {
         if (!form.orgName.trim()) newErrors.orgName = "Organization Name is required for partnership.";
         if (!form.businessDetails.trim()) newErrors.businessDetails = "Please describe your business.";
     } else {
+        // Validation for pages is kept, but it doesn't affect price
         if (Number.isNaN(form.pages) || form.pages < MIN_PAGES_PER_BOOK) newErrors.pages = `Pages must be at least ${MIN_PAGES_PER_BOOK}.`;
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  // Helper for WhatsApp message
+  // Helper for WhatsApp message: Simplified to just show the plan's fixed total price
   const getPlanInfoForMessage = (planKey: PlanKey) => {
-      const basePrice = Math.round(PLAN_PRICES[planKey] * 100) / 100;
-      const planTitle = PRICING_PLANS.find(p => p.value === planKey)?.price.replace(' Total', '') || `₹${basePrice * 3} Total`;
+      const totalFixedPrice = PLAN_PRICES[planKey] ?? 199;
+      const books = planKey.split(' ')[0] === '1' ? 1 : Number(planKey.split(' ')[0]);
+      const effectiveRate = Math.round(totalFixedPrice / books);
 
-      if (planKey === "1 Book") return `Plan: ${planKey} (Rate: ₹${basePrice}/book)`;
-      return `Plan: ${planKey} (${planTitle} - Effective Rate: ₹${basePrice.toFixed(0)}/book)`;
+      if (planKey === "1 Book") return `Plan: ${planKey} (Total: ₹${totalFixedPrice})`;
+      return `Plan: ${planKey} (Total: ₹${totalFixedPrice} - Est. Effective Rate: ₹${effectiveRate}/book)`;
   };
 
 
@@ -251,7 +262,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     let msg = "";
     
     if (form.isPartnerEnquiry) {
-        // PARTNER MESSAGE
+        // PARTNER MESSAGE (Unchanged)
         msg = 
             `*NotebookComplete PARTNERSHIP Enquiry*%0A%0A` +
             `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A` +
@@ -261,11 +272,12 @@ export default function NotebookCompleteApp(): JSX.Element {
             `📝 *Business Details & Proposal:*%0A${form.businessDetails || "—"}%0A%0A` +
             `We will contact you shortly to discuss your proposal.`
     } else {
-        // ORDER MESSAGE
+        // ORDER MESSAGE (Updated to reflect fixed price logic)
         const price = estimatedPrice;
         const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
         const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
-        const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Initial Base Price ₹${Math.round(initialBasePrice)})` : "—";
+        // Key chain eligibility is now based on planFixedPrice
+        const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Plan Price ₹${Math.round(planFixedPrice)})` : "—";
         const planInfo = getPlanInfoForMessage(form.plan);
 
         const fileMsg = form.file
@@ -274,7 +286,7 @@ export default function NotebookCompleteApp(): JSX.Element {
 
         msg =
           `*NotebookComplete Order*%0A%0A` +
-          `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages}%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
+          `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages} (Note: Price is fixed per plan, not by number of pages.)%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
           `*Total Savings from Coupon: ₹${Math.round(savingsAmount)}*%0A%0A` +
           `${fileMsg}%0A%0A` +
           `Please confirm availability and final quote.`;
@@ -618,11 +630,11 @@ export default function NotebookCompleteApp(): JSX.Element {
                   {/* Quote and Submit */}
                   <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
                     <div className="quote-box-prominent" aria-live="polite">
-                      <span>Your Estimated Quote:</span>
+                      <span>Your Estimated Quote (Fixed Plan Price):</span>
                       <strong>₹{quote}</strong>
                       {isKeyChainEligible && (
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                            🎉 FREE Key Chain Included! (Order above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
+                            🎉 FREE Key Chain Included! (Plan Price above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
                         </div>
                       )}
                       {isCouponApplied && (
