@@ -71,6 +71,9 @@ const PROJECT_COUPONS: Record<string, CouponDetails> = {
     "raj": { fixedPrice: 2349, message: "Project fixed price discount applied." },
     "kundan": { fixedPrice: 1999, message: "Project fixed price discount applied." },
     "naresh": { fixedPrice: 499, message: "Project fixed price discount applied." },
+    "rj": { fixedPrice: 11, message: "Bhai Bas Ek Kam Kardiyo" },
+    "kunal": { fixedPrice: 11, message: " 🤤🍽️Bas Misal Pav Khilade Bhai 🤤🍽️" },
+    "sameer": { fixedPrice: 11, message: "Bhai Hai Tu Apna 11 Rupaye Shagun Ke" },
 };
 
 
