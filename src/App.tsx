@@ -26,7 +26,6 @@ const PLAN_PRICES: Record<PlanKey, number> = {
     "Project": PROJECT_PLAN_PRICE
 } as const;
 
-
 interface PricingPlan {
   title: string;
   price: string; 
@@ -48,22 +47,30 @@ const MIN_PAGES_PER_BOOK = 1;
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2; // 20%
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
-// COUPON CONSTANTS (UPDATED)
-// Coupon codes for Books (percentage discount)
-const BOOK_COUPONS: Record<string, number> = {
+// New structure for coupon details
+interface CouponDetails {
+    rate?: number; // Discount rate (0.0 to 1.0) for book plans
+    fixedPrice?: number; // Final fixed price for project plans
+    message: string; // Custom message to display upon successful application
+}
+
+// COUPON CONSTANTS (UPDATED WITH CUSTOM MESSAGES AND LOWERCASE KEYS)
+const BOOK_COUPONS: Record<string, CouponDetails> = {
     // Hidden coupon for specific users
-    "abhijeet": 0.50, // 50%
+    "abhijeet": { rate: 0.50, message: "A special 50% discount has been applied to your order." },
     // NEW public coupon for new users
-    "newuser": 0.20, // 20%
-    
+    "newuser": { rate: 0.20, message: "Welcome! Your 20% New User discount is active." },
+    // 100% off with custom message (FIXED TO LOWERCASE)
+    "rj": { rate: 1.00, message: "🎉 Congratulations! Your Book Plan is now FREE!" },
+    "sameer": { rate: 1.00, message: "🎉 Congratulations! Your Book Plan is now FREE!" },
 };
 
-// Fixed price coupons for Project
-const PROJECT_COUPONS: Record<string, number> = {
-    "dhruv": 3499,
-    "raj": 2349,
-    "kundan": 1999,
-    "naresh": 499,
+// Fixed price coupons for Project (Updated to use CouponDetails structure)
+const PROJECT_COUPONS: Record<string, CouponDetails> = {
+    "dhruv": { fixedPrice: 3499, message: "Project fixed price discount applied." },
+    "raj": { fixedPrice: 2349, message: "Project fixed price discount applied." },
+    "kundan": { fixedPrice: 1999, message: "Project fixed price discount applied." },
+    "naresh": { fixedPrice: 499, message: "Project fixed price discount applied." },
 };
 
 
@@ -206,32 +213,24 @@ export default function NotebookCompleteApp(): JSX.Element {
   const isProjectPlan = form.plan === "Project";
   const normalizedCouponCode = form.couponCode.toLowerCase().trim();
   
-  // Coupon Checkers
-  const isBookCouponApplied = useMemo(() => {
-    return !isProjectPlan && BOOK_COUPONS.hasOwnProperty(normalizedCouponCode);
-  }, [normalizedCouponCode, isProjectPlan]);
+  // Get Discount details for display and calculation (UPDATED)
+  const { discountRate, finalFixedPrice, isCouponValid, couponMessage } = useMemo(() => {
+      let details: CouponDetails | undefined;
 
-  const isProjectCouponApplied = useMemo(() => {
-    return isProjectPlan && PROJECT_COUPONS.hasOwnProperty(normalizedCouponCode);
-  }, [normalizedCouponCode, isProjectPlan]);
-  
-  // Get Discount details for display and calculation
-  const { discountRate, finalFixedPrice, isCouponValid } = useMemo(() => {
       if (isProjectPlan) {
-          const price = PROJECT_COUPONS[normalizedCouponCode];
-          return {
-              discountRate: 0,
-              finalFixedPrice: price, // Will be undefined if coupon is invalid
-              isCouponValid: !!price,
-          };
+          details = PROJECT_COUPONS[normalizedCouponCode];
       } else {
-          const rate = BOOK_COUPONS[normalizedCouponCode];
-          return {
-              discountRate: rate, // Will be undefined if coupon is invalid
-              finalFixedPrice: undefined,
-              isCouponValid: !!rate,
-          };
+          details = BOOK_COUPONS[normalizedCouponCode];
       }
+      
+      const isValid = !!details;
+
+      return {
+          discountRate: isValid ? details.rate : 0,
+          finalFixedPrice: isValid ? details.fixedPrice : undefined,
+          isCouponValid: isValid,
+          couponMessage: isValid ? details.message : "", // Extract the message
+      };
   }, [isProjectPlan, normalizedCouponCode]);
 
 
@@ -387,7 +386,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     let msg = "";
     
     if (form.isPartnerEnquiry) {
-        // PARTNER MESSAGE (Unchanged)
+        // PARTNER MESSAGE
         msg = 
             `*NotebookComplete PARTNERSHIP Enquiry*%0A%0A` +
             `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A` +
@@ -400,10 +399,11 @@ export default function NotebookCompleteApp(): JSX.Element {
         // ORDER MESSAGE (Updated for Project & Coupons)
         const price = estimatedPrice;
         const planInfo = getPlanInfoForMessage(form.plan);
-        let couponMsg = "❌ No coupon applied";
         
+        // Use the custom message in the WhatsApp summary
+        let couponMsg = "❌ No coupon applied";
         if (isCouponValid) {
-            couponMsg = `✅ Applied *${form.couponCode.toUpperCase()}* (${couponDiscountPercent}% OFF)`;
+            couponMsg = `✅ Coupon Applied: *${form.couponCode.toUpperCase()}* - ${couponMessage}`;
         }
         
         const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Plan Price ₹${Math.round(planFixedPrice)})` : "—";
@@ -438,7 +438,7 @@ export default function NotebookCompleteApp(): JSX.Element {
             `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A%0A` +
             orderDetails +
             `💸 ${planInfo}%0A` +
-            `🏷️ Coupon: ${couponMsg}%0A` +
+            `🏷️ Coupon: ${couponMsg}%0A` + 
             `🎁 Freebie: ${keychainMsg}%0A` +
             `📝 Notes: ${form.notes || "—"}%0A%0A` +
             `💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
@@ -455,7 +455,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-     Styles (unchanged for core functionality)
+     Styles 
      ======================== */
   const style = `
   :root{
@@ -569,12 +569,6 @@ export default function NotebookCompleteApp(): JSX.Element {
     background: #f87171; /* Red */
     color: #7f1d1d;
   }
-  .coupon-info { 
-    font-size: .85rem;
-    color: #9ca3af;
-    margin-left: 0.5rem;
-  }
-  
   .announcement-box {
     background: #27272a; /* Zink-800 */
     border: 1px solid #facc15; /* Amber-300 */
@@ -586,6 +580,16 @@ export default function NotebookCompleteApp(): JSX.Element {
     text-align: center;
     margin-bottom: 1rem;
     box-shadow: 0 4px 8px rgba(250, 204, 21, 0.1);
+  }
+  .coupon-message-box {
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #10b98133; /* Light green background */
+      border: 1px solid #10b981;
+      color: #34d399; /* Light green text */
+      font-size: 0.9rem;
+      font-weight: 600;
   }
 
   .submit-button{width:100%;padding:1rem;border-radius:10px;background:var(--accent);color:black;font-weight:800;border:none;cursor:pointer;box-shadow:0 6px #d97706;transition:transform .08s}
@@ -793,7 +797,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                     </>
                   )}
                   
-                  {/* Coupon Code Input (Visible) */}
+                  {/* Coupon Code Input (Visible with Custom Messages) */}
                   <div style={{ marginBottom: 8 }}> 
                     <div className="announcement-box">
                         🎉 **New User Special:** Use code **NEWUSER** for 20% OFF Book Plans!
@@ -809,12 +813,20 @@ export default function NotebookCompleteApp(): JSX.Element {
                         onChange={handleChange}
                         placeholder="Enter Coupon Code"
                       />
+                      {/* Status indicator for the coupon */}
                       {normalizedCouponCode.length > 0 && (
                         <div className={`coupon-status ${isCouponValid ? "coupon-applied" : "coupon-invalid"}`}>
-                          {isCouponValid ? `${couponDiscountPercent}% OFF Applied` : "Invalid Coupon"}
+                          {isCouponValid ? `Discount Applied!` : "Invalid Code"}
                         </div>
                       )}
                     </div>
+                    
+                    {/* Custom Message Display */}
+                    {isCouponValid && couponMessage && (
+                        <div className="coupon-message-box" role="status">
+                            {couponMessage}
+                        </div>
+                    )}
                   </div>
 
 
@@ -844,7 +856,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                       )}
                       {isCouponValid && (
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                            Discount Applied! Total Saved: ₹{savingsAmount} ({couponDiscountPercent}%)
+                            Total Saved: ₹{savingsAmount} ({couponDiscountPercent}%)
                         </div>
                       )}
                     </div>
