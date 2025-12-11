@@ -3,15 +3,29 @@ import React, { JSX, useEffect, useMemo, useState } from "react";
 /* ============================
    Constants & Types 
    ============================ */
-// Stores the TOTAL fixed price for each plan, regardless of 'pages'
-const PLAN_PRICES = {
+
+// Fixed prices for Book Plans
+const BOOK_PLAN_PRICES = {
   "1 Book": 199, 
   "3 Books": 499,
   "6 Books": 999,
   "12 Books": 1999,
 } as const;
 
-type PlanKey = keyof typeof PLAN_PRICES;
+// New Fixed Price for Project Plan
+const PROJECT_PLAN_PRICE = 3999;
+const BLACK_BOOK_MARKUP = 850;
+
+// Combined Plans Type
+type BookPlanKey = keyof typeof BOOK_PLAN_PRICES;
+type ProjectPlanKey = "Project";
+type PlanKey = BookPlanKey | ProjectPlanKey;
+
+const PLAN_PRICES: Record<PlanKey, number> = {
+    ...BOOK_PLAN_PRICES,
+    "Project": PROJECT_PLAN_PRICE
+} as const;
+
 
 interface PricingPlan {
   title: string;
@@ -26,15 +40,26 @@ const PRICING_PLANS: PricingPlan[] = [
   { title: "3 Books Pack", price: "₹499 Total", details: "Up to 3 assignments · Great Value", discount: "-25% (per book)", value: "3 Books" },
   { title: "6 Books Pack", price: "₹999 Total", details: "1–6 assignments · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
   { title: "12 Books Pack", price: "₹1999 Total", details: "1–12 assignments · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
+  // NEW PROJECT PLAN
+  { title: "Project & Report", price: "₹3999 Total", details: "Software/Academic Project", discount: "New Feature", value: "Project" },
 ];
 
-const MIN_PAGES_PER_BOOK = 1; // Kept for validation, but doesn't affect price
+const MIN_PAGES_PER_BOOK = 1; 
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2; // 20%
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
-// Coupon constants
-const COUPON_CODE = "abhijeet";
-const COUPON_DISCOUNT = 0.50; // 50%
+// Coupon constants (Existing & New for Project)
+const BOOK_COUPON_CODE = "abhijeet";
+const BOOK_COUPON_DISCOUNT = 0.50; // 50% for Books
+
+// Fixed price coupons for Project
+const PROJECT_COUPONS: Record<string, number> = {
+    "dhruv": 3499,
+    "raj": 2349,
+    "kundan": 1999,
+    "naresh": 499,
+};
+
 
 interface FormState {
   name: string;
@@ -49,6 +74,12 @@ interface FormState {
   plan: PlanKey; // Order specific
   withDiagrams: boolean; // Order specific
   couponCode: string; // Order specific
+  
+  // NEW PROJECT FIELDS
+  withBlackBook: boolean; // Project specific
+  projectTitle: string; // Project specific
+  domain: string; // Project specific
+  modules: string; // Project specific
   
   // NEW PARTNER FIELDS
   isPartnerEnquiry: boolean;
@@ -131,7 +162,7 @@ const PricingCard = (props: {
 };
 
 /* =========================
-   Main Component (with Partner Option)
+   Main Component 
    ========================= */
 
 export default function NotebookCompleteApp(): JSX.Element {
@@ -148,6 +179,12 @@ export default function NotebookCompleteApp(): JSX.Element {
     plan: "1 Book",
     withDiagrams: false,
     couponCode: "",
+    // NEW PROJECT
+    withBlackBook: false,
+    projectTitle: "",
+    domain: "",
+    modules: "",
+    // PARTNER
     isPartnerEnquiry: false,
     orgName: "",
     partnerType: "Individual",
@@ -159,33 +196,66 @@ export default function NotebookCompleteApp(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ORDER LOGIC
-  const isCouponApplied = useMemo(() => {
-    return form.couponCode.toLowerCase() === COUPON_CODE;
-  }, [form.couponCode]);
-  
-  // 1. Get the fixed total price for the selected plan
   const planFixedPrice = PLAN_PRICES[form.plan] ?? 199;
+  const isProjectPlan = form.plan === "Project";
+  const normalizedCouponCode = form.couponCode.toLowerCase();
   
-  // 2. The base price for calculation is the plan's fixed total price
-  const initialBasePrice = planFixedPrice; // No longer depends on form.pages
+  // Coupon Checkers
+  const isBookCouponApplied = useMemo(() => {
+    return !isProjectPlan && normalizedCouponCode === BOOK_COUPON_CODE;
+  }, [normalizedCouponCode, isProjectPlan]);
 
-  const estimatedPrice = useMemo(() => {
-    // 3. Apply the diagram markup to the fixed price
-    const markupPrice = planFixedPrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1);
-    let finalPrice = markupPrice;
-    
-    // 4. Apply coupon discount
-    if (isCouponApplied) {
-      finalPrice = markupPrice * (1 - COUPON_DISCOUNT);
+  const isProjectCouponApplied = useMemo(() => {
+    return isProjectPlan && PROJECT_COUPONS.hasOwnProperty(normalizedCouponCode);
+  }, [normalizedCouponCode, isProjectPlan]);
+  
+  // Calculate the base and final price
+  const { estimatedPrice, savingsAmount, couponDiscountPercent } = useMemo(() => {
+    let basePrice = planFixedPrice;
+    let finalPrice = basePrice;
+    let savings = 0;
+    let discountPercent = 0;
+
+    // 1. Apply Project Options (Black Book)
+    if (isProjectPlan && form.withBlackBook) {
+        basePrice += BLACK_BOOK_MARKUP;
+        finalPrice += BLACK_BOOK_MARKUP;
     }
-    return Math.round(finalPrice);
-  }, [planFixedPrice, form.withDiagrams, isCouponApplied]);
-  
-  // 5. Keychain eligibility now depends on the plan's fixed price
-  const isKeyChainEligible = planFixedPrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
 
-  // 6. Savings calculation uses the calculated markup price before discount
-  const savingsAmount = (planFixedPrice * (form.withDiagrams ? (1 + DIAGRAM_MARKUP_PERCENTAGE) : 1) * COUPON_DISCOUNT);
+    // 2. Apply Book Options (Diagram Markup)
+    if (!isProjectPlan) {
+        const markup = planFixedPrice * DIAGRAM_MARKUP_PERCENTAGE;
+        if (form.withDiagrams) {
+            basePrice += markup;
+            finalPrice += markup;
+        }
+    }
+    
+    // 3. Apply Coupon Discount
+    if (isProjectCouponApplied) {
+        // Project coupons are fixed final prices
+        const fixedCouponPrice = PROJECT_COUPONS[normalizedCouponCode]!;
+        savings = basePrice - fixedCouponPrice;
+        finalPrice = fixedCouponPrice;
+        discountPercent = Math.round((savings / basePrice) * 100);
+
+    } else if (isBookCouponApplied) {
+        // Book coupon is a percentage discount
+        savings = basePrice * BOOK_COUPON_DISCOUNT;
+        finalPrice = basePrice - savings;
+        discountPercent = BOOK_COUPON_DISCOUNT * 100;
+    }
+
+    return { 
+        estimatedPrice: Math.round(finalPrice), 
+        savingsAmount: Math.round(savings),
+        couponDiscountPercent: discountPercent,
+    };
+  }, [planFixedPrice, isProjectPlan, form.withBlackBook, form.withDiagrams, isProjectCouponApplied, isBookCouponApplied, normalizedCouponCode]);
+  
+  
+  // Key chain eligibility now depends on the plan's fixed price
+  const isKeyChainEligible = planFixedPrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
 
   useEffect(() => {
     setQuote(estimatedPrice);
@@ -206,7 +276,6 @@ export default function NotebookCompleteApp(): JSX.Element {
     }
 
     if (name === "pages") {
-      // Pages is still used for the order details message, so we keep the handler
       const num = Number(target.value || 0);
       setForm(s => ({ ...s, pages: num }));
       return;
@@ -218,12 +287,29 @@ export default function NotebookCompleteApp(): JSX.Element {
         return;
     }
     
+    // NEW Toggle handler for Black Book
+    if (name === "withBlackBook") {
+        setForm(s => ({ ...s, withBlackBook: (target as HTMLInputElement).checked }));
+        return;
+    }
+    
     setForm(s => ({ ...s, [name]: target.value } as unknown as FormState));
   }
 
   function handleDiagramToggle(e: React.ChangeEvent<HTMLInputElement>) {
     setForm(s => ({ ...s, withDiagrams: e.target.checked }));
   }
+  
+  // Custom Plan change handler to reset project-specific fields if moving away from Project
+  function handlePlanChange(newPlan: PlanKey) {
+    let updatedForm = { ...form, plan: newPlan };
+    if (newPlan !== "Project") {
+        // Reset Project-specific fields when switching to a Book plan
+        updatedForm = { ...updatedForm, withBlackBook: false, projectTitle: "", domain: "", modules: "" };
+    }
+    setForm(updatedForm);
+  }
+
 
   const validateForm = () => {
     const newErrors: Record<string, string | null> = {};
@@ -231,23 +317,35 @@ export default function NotebookCompleteApp(): JSX.Element {
     if (!/^\d{10}$/.test(form.phone.trim())) newErrors.phone = "Enter a valid 10-digit phone.";
     
     if (form.isPartnerEnquiry) {
+        // Partner validation
         if (!form.orgName.trim()) newErrors.orgName = "Organization Name is required for partnership.";
         if (!form.businessDetails.trim()) newErrors.businessDetails = "Please describe your business.";
+    } else if (isProjectPlan) {
+        // Project validation
+        if (!form.projectTitle.trim()) newErrors.projectTitle = "Project Title is required.";
+        if (!form.domain.trim()) newErrors.domain = "Project Domain is required.";
+        if (!form.modules.trim()) newErrors.modules = "Project Modules/Details are required.";
     } else {
-        // Validation for pages is kept, but it doesn't affect price
+        // Book validation
         if (Number.isNaN(form.pages) || form.pages < MIN_PAGES_PER_BOOK) newErrors.pages = `Pages must be at least ${MIN_PAGES_PER_BOOK}.`;
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  // Helper for WhatsApp message: Simplified to just show the plan's fixed total price
+  // Helper for WhatsApp message
   const getPlanInfoForMessage = (planKey: PlanKey) => {
       const totalFixedPrice = PLAN_PRICES[planKey] ?? 199;
+      
+      if (planKey === "Project") {
+        let msg = `Plan: ${planKey} (Base Price: ₹${totalFixedPrice})`;
+        if (form.withBlackBook) msg += ` + Black Book (₹${BLACK_BOOK_MARKUP})`;
+        return msg;
+      }
+      
       const books = planKey.split(' ')[0] === '1' ? 1 : Number(planKey.split(' ')[0]);
       const effectiveRate = Math.round(totalFixedPrice / books);
 
-      if (planKey === "1 Book") return `Plan: ${planKey} (Total: ₹${totalFixedPrice})`;
       return `Plan: ${planKey} (Total: ₹${totalFixedPrice} - Est. Effective Rate: ₹${effectiveRate}/book)`;
   };
 
@@ -272,24 +370,54 @@ export default function NotebookCompleteApp(): JSX.Element {
             `📝 *Business Details & Proposal:*%0A${form.businessDetails || "—"}%0A%0A` +
             `We will contact you shortly to discuss your proposal.`
     } else {
-        // ORDER MESSAGE (Updated to reflect fixed price logic)
+        // ORDER MESSAGE (Updated for Project & Coupons)
         const price = estimatedPrice;
-        const diagramsMsg = form.withDiagrams ? "YES (+20% markup included)" : "NO (Base price)";
-        const couponMsg = isCouponApplied ? `✅ Applied *${COUPON_CODE}* (50% OFF)` : "❌ No coupon applied";
-        // Key chain eligibility is now based on planFixedPrice
-        const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Plan Price ₹${Math.round(planFixedPrice)})` : "—";
         const planInfo = getPlanInfoForMessage(form.plan);
+        let couponMsg = "❌ No coupon applied";
+        
+        if (isBookCouponApplied || isProjectCouponApplied) {
+            couponMsg = `✅ Applied *${form.couponCode.toUpperCase()}* (${couponDiscountPercent}% OFF)`;
+        }
+        
+        const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included* (Plan Price ₹${Math.round(planFixedPrice)})` : "—";
 
         const fileMsg = form.file
-          ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
-          : "📎 File: None selected. *Please upload your syllabus/content in our chat.*";
+            ? `📎 File: ${form.file.name}. *Please upload this file in our chat after sending this message.*`
+            : "📎 File: None selected. *Please upload your syllabus/content in our chat.*";
+
+        let orderDetails = "";
+        if (isProjectPlan) {
+            // Project Details
+            orderDetails = 
+                `📌 *Project Details:*%0A` +
+                `💻 Title: ${form.projectTitle || "—"}%0A` +
+                `🌐 Domain: ${form.domain || "—"}%0A` +
+                `📦 Modules/Reqs: ${form.modules || "—"}%0A` +
+                `📄 Black Book: ${form.withBlackBook ? `YES (+₹${BLACK_BOOK_MARKUP})` : "NO"}%0A`;
+        } else {
+            // Book Details
+            const diagramsMsg = form.withDiagrams ? `YES (+${DIAGRAM_MARKUP_PERCENTAGE * 100}% markup included)` : "NO (Base price)";
+            orderDetails = 
+                `🏫 College: ${form.college || "—"}%0A` +
+                `📚 Class: ${form.className || "—"}%0A` +
+                `📘 Subject: ${form.subject || "—"}%0A` +
+                `📄 Books/Assignments: ${form.pages} (Note: Price is fixed per plan.)%0A` +
+                `🎨 Diagrams/Printouts: ${diagramsMsg}%0A`;
+        }
+
 
         msg =
-          `*NotebookComplete Order*%0A%0A` +
-          `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A 🏫 College: ${form.college || "—"}%0A📚 Class: ${form.className || "—"}%0A📘 Subject: ${form.subject || "—"}%0A📄 Books/Assignments: ${form.pages} (Note: Price is fixed per plan, not by number of pages.)%0A💸 ${planInfo}%0A🎨 Diagrams/Printouts: ${diagramsMsg}%0A🏷️ Coupon: ${couponMsg}%0A🎁 Freebie: ${keychainMsg}%0A📝 Notes: ${form.notes || "—"}%0A%0A💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
-          `*Total Savings from Coupon: ₹${Math.round(savingsAmount)}*%0A%0A` +
-          `${fileMsg}%0A%0A` +
-          `Please confirm availability and final quote.`;
+            `*NotebookComplete Order*%0A%0A` +
+            `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A%0A` +
+            orderDetails +
+            `💸 ${planInfo}%0A` +
+            `🏷️ Coupon: ${couponMsg}%0A` +
+            `🎁 Freebie: ${keychainMsg}%0A` +
+            `📝 Notes: ${form.notes || "—"}%0A%0A` +
+            `💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
+            `*Total Savings from Coupon: ₹${savingsAmount}* (${couponDiscountPercent}%)%0A%0A` +
+            `${fileMsg}%0A%0A` +
+            `Please confirm availability and final quote.`;
     }
 
     const whatsappUrl = `https://wa.me/911234567890?text=${msg}`;
@@ -300,8 +428,8 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   /* ========================
-      Styles (unchanged)
-      ======================== */
+     Styles (unchanged for core functionality)
+     ======================== */
   const style = `
   :root{
     --bg: #0f0f0f;
@@ -530,7 +658,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                             required
                             aria-invalid={!!errors.businessDetails}
                         />
-                         {errors.businessDetails && <div className="input-error-text">{errors.businessDetails}</div>}
+                          {errors.businessDetails && <div className="input-error-text">{errors.businessDetails}</div>}
                     </div>
 
                     <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
@@ -549,7 +677,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                 </>
               ) : (
                 /* ========================
-                   ORDERING FIELDS
+                   ORDERING FIELDS (Books or Project)
                    ======================== */
                 <>
                   <section id="pricing-order" className="pricing-section" aria-label="Pricing plans" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', margin: '0 0 16px 0', padding: 0 }}>
@@ -561,23 +689,10 @@ export default function NotebookCompleteApp(): JSX.Element {
                         details={p.details}
                         discount={p.discount}
                         isSelected={form.plan === p.value}
-                        onClick={() => setForm(s => ({ ...s, plan: p.value }))}
+                        onClick={() => handlePlanChange(p.value)} // Use custom handler
                       />
                     ))}
                   </section>
-                
-                  {/* Academic Info */}
-                  <fieldset className="fieldset-grid-3" style={{ marginBottom: 8 }}>
-                    <InputField name="college" value={form.college} onChange={handleChange} placeholder="College / School (Optional)" />
-                    <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class / Year (Optional)" />
-                    <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
-                  </fieldset>
-
-                  {/* Order Details */}
-                  <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
-                    <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
-                    <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(PLAN_PRICES)} />
-                  </fieldset>
                   
                   <InputField
                     name="address"
@@ -586,16 +701,62 @@ export default function NotebookCompleteApp(): JSX.Element {
                     placeholder="Your Full Address (Optional, for physical delivery)"
                   />
 
-                  {/* Diagram Toggle */}
-                  <div className="toggle-row" style={{ marginBottom: 8 }}>
-                    <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+20% Total Price)</label>
-                    <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
-                  </div>
+                  {isProjectPlan ? (
+                    /* PROJECT-SPECIFIC FIELDS */
+                    <>
+                        <h4 style={{ margin: "4px 0 0", color: '#fbbf24' }}>Project Details</h4>
+                        <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
+                            <InputField name="projectTitle" value={form.projectTitle} onChange={handleChange} placeholder="Project Title (e.g., E-commerce Website)" required error={errors.projectTitle} />
+                            <InputField name="domain" value={form.domain} onChange={handleChange} placeholder="Project Domain (e.g., Computer Science, Robotics)" required error={errors.domain} />
+                        </fieldset>
+                        <div style={{ marginBottom: 8 }}>
+                            <textarea 
+                                name="modules" 
+                                value={form.modules} 
+                                onChange={handleChange as any} 
+                                placeholder="Describe the 6 main modules/features required for the project..." 
+                                className="textarea-field" 
+                                style={{ width: "100%", borderRadius: 10, padding: 12, minHeight: 96 }} 
+                                required
+                                aria-invalid={!!errors.modules}
+                            />
+                            {errors.modules && <div className="input-error-text">{errors.modules}</div>}
+                        </div>
+                        
+                        {/* Black Book Toggle */}
+                        <div className="toggle-row" style={{ marginBottom: 8 }}>
+                            <label htmlFor="blackbook-toggle">Include Black Book / Project Report (+₹{BLACK_BOOK_MARKUP})</label>
+                            <input id="blackbook-toggle" type="checkbox" name="withBlackBook" checked={form.withBlackBook} onChange={handleChange} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
+                        </div>
+                    </>
+                  ) : (
+                    /* BOOK-SPECIFIC FIELDS */
+                    <>
+                        {/* Academic Info */}
+                        <fieldset className="fieldset-grid-3" style={{ marginBottom: 8 }}>
+                            <InputField name="college" value={form.college} onChange={handleChange} placeholder="College / School (Optional)" />
+                            <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class / Year (Optional)" />
+                            <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
+                        </fieldset>
 
-                  {/* Coupon Code Input */}
-                  <div style={{ marginBottom: 8 }}>
+                        {/* Order Details */}
+                        <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
+                            <InputField type="number" name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Books/Assignments (Min 1)" min={MIN_PAGES_PER_BOOK} required error={errors.pages} />
+                            <SelectField name="plan" value={form.plan} onChange={handleChange as any} options={Object.keys(BOOK_PLAN_PRICES)} />
+                        </fieldset>
+
+                        {/* Diagram Toggle */}
+                        <div className="toggle-row" style={{ marginBottom: 8 }}>
+                            <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+{DIAGRAM_MARKUP_PERCENTAGE * 100}% Total Price)</label>
+                            <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
+                        </div>
+                    </>
+                  )}
+                  
+                  {/* Coupon Code Input (Hidden from UI but logic remains) */}
+                  <div style={{ marginBottom: 8, display: 'none' }}> 
                     <label htmlFor="coupon-code" className="file-upload-label" style={{ fontWeight: 400, color: "#d1d5db" }}>
-                      Coupon Code (Optional)
+                       Coupon Code (Hidden for personal distribution)
                     </label>
                     <div className="coupon-input-container">
                       <InputField
@@ -605,8 +766,8 @@ export default function NotebookCompleteApp(): JSX.Element {
                         placeholder="Enter Coupon Code"
                       />
                       {form.couponCode.length > 0 && (
-                        <div className={`coupon-status ${isCouponApplied ? "coupon-applied" : "coupon-invalid"}`}>
-                          {isCouponApplied ? "50% OFF Applied" : "Invalid Coupon"}
+                        <div className={`coupon-status ${(isBookCouponApplied || isProjectCouponApplied) ? "coupon-applied" : "coupon-invalid"}`}>
+                          {(isBookCouponApplied || isProjectCouponApplied) ? `${couponDiscountPercent}% OFF Applied` : "Invalid Coupon"}
                         </div>
                       )}
                     </div>
@@ -630,16 +791,16 @@ export default function NotebookCompleteApp(): JSX.Element {
                   {/* Quote and Submit */}
                   <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
                     <div className="quote-box-prominent" aria-live="polite">
-                      <span>Your Estimated Quote (Fixed Plan Price):</span>
+                      <span>Your Estimated Quote:</span>
                       <strong>₹{quote}</strong>
-                      {isKeyChainEligible && (
+                      {isKeyChainEligible && !isProjectPlan && ( // Hide key chain for Project unless explicitly requested
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
                             🎉 FREE Key Chain Included! (Plan Price above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
                         </div>
                       )}
-                      {isCouponApplied && (
+                      {(isBookCouponApplied || isProjectCouponApplied) && (
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                            Discount Applied! Total Saved: ₹{Math.round(savingsAmount)}
+                            Discount Applied! Total Saved: ₹{savingsAmount} ({couponDiscountPercent}%)
                         </div>
                       )}
                     </div>
