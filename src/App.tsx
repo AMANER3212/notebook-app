@@ -48,9 +48,14 @@ const MIN_PAGES_PER_BOOK = 1;
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2; // 20%
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
-// Coupon constants (Existing & New for Project)
-const BOOK_COUPON_CODE = "abhijeet";
-const BOOK_COUPON_DISCOUNT = 0.50; // 50% for Books
+// COUPON CONSTANTS (UPDATED)
+// Coupon codes for Books (percentage discount)
+const BOOK_COUPONS: Record<string, number> = {
+    // Hidden coupon for specific users
+    "abhijeet": 0.50, // 50%
+    // NEW public coupon for new users
+    "newuser": 0.20, // 20%
+};
 
 // Fixed price coupons for Project
 const PROJECT_COUPONS: Record<string, number> = {
@@ -198,17 +203,37 @@ export default function NotebookCompleteApp(): JSX.Element {
   // ORDER LOGIC
   const planFixedPrice = PLAN_PRICES[form.plan] ?? 199;
   const isProjectPlan = form.plan === "Project";
-  const normalizedCouponCode = form.couponCode.toLowerCase();
+  const normalizedCouponCode = form.couponCode.toLowerCase().trim();
   
   // Coupon Checkers
   const isBookCouponApplied = useMemo(() => {
-    return !isProjectPlan && normalizedCouponCode === BOOK_COUPON_CODE;
+    return !isProjectPlan && BOOK_COUPONS.hasOwnProperty(normalizedCouponCode);
   }, [normalizedCouponCode, isProjectPlan]);
 
   const isProjectCouponApplied = useMemo(() => {
     return isProjectPlan && PROJECT_COUPONS.hasOwnProperty(normalizedCouponCode);
   }, [normalizedCouponCode, isProjectPlan]);
   
+  // Get Discount details for display and calculation
+  const { discountRate, finalFixedPrice, isCouponValid } = useMemo(() => {
+      if (isProjectPlan) {
+          const price = PROJECT_COUPONS[normalizedCouponCode];
+          return {
+              discountRate: 0,
+              finalFixedPrice: price, // Will be undefined if coupon is invalid
+              isCouponValid: !!price,
+          };
+      } else {
+          const rate = BOOK_COUPONS[normalizedCouponCode];
+          return {
+              discountRate: rate, // Will be undefined if coupon is invalid
+              finalFixedPrice: undefined,
+              isCouponValid: !!rate,
+          };
+      }
+  }, [isProjectPlan, normalizedCouponCode]);
+
+
   // Calculate the base and final price
   const { estimatedPrice, savingsAmount, couponDiscountPercent } = useMemo(() => {
     let basePrice = planFixedPrice;
@@ -232,18 +257,19 @@ export default function NotebookCompleteApp(): JSX.Element {
     }
     
     // 3. Apply Coupon Discount
-    if (isProjectCouponApplied) {
-        // Project coupons are fixed final prices
-        const fixedCouponPrice = PROJECT_COUPONS[normalizedCouponCode]!;
-        savings = basePrice - fixedCouponPrice;
-        finalPrice = fixedCouponPrice;
-        discountPercent = Math.round((savings / basePrice) * 100);
+    if (isCouponValid) {
+        if (isProjectPlan) {
+            // Project coupons are fixed final prices
+            savings = basePrice - finalFixedPrice!;
+            finalPrice = finalFixedPrice!;
+            discountPercent = Math.round((savings / basePrice) * 100);
 
-    } else if (isBookCouponApplied) {
-        // Book coupon is a percentage discount
-        savings = basePrice * BOOK_COUPON_DISCOUNT;
-        finalPrice = basePrice - savings;
-        discountPercent = BOOK_COUPON_DISCOUNT * 100;
+        } else {
+            // Book coupon is a percentage discount
+            savings = basePrice * discountRate!;
+            finalPrice = basePrice - savings;
+            discountPercent = discountRate! * 100;
+        }
     }
 
     return { 
@@ -251,7 +277,7 @@ export default function NotebookCompleteApp(): JSX.Element {
         savingsAmount: Math.round(savings),
         couponDiscountPercent: discountPercent,
     };
-  }, [planFixedPrice, isProjectPlan, form.withBlackBook, form.withDiagrams, isProjectCouponApplied, isBookCouponApplied, normalizedCouponCode]);
+  }, [planFixedPrice, isProjectPlan, form.withBlackBook, form.withDiagrams, isCouponValid, finalFixedPrice, discountRate]);
   
   
   // Key chain eligibility now depends on the plan's fixed price
@@ -375,7 +401,7 @@ export default function NotebookCompleteApp(): JSX.Element {
         const planInfo = getPlanInfoForMessage(form.plan);
         let couponMsg = "❌ No coupon applied";
         
-        if (isBookCouponApplied || isProjectCouponApplied) {
+        if (isCouponValid) {
             couponMsg = `✅ Applied *${form.couponCode.toUpperCase()}* (${couponDiscountPercent}% OFF)`;
         }
         
@@ -546,6 +572,19 @@ export default function NotebookCompleteApp(): JSX.Element {
     font-size: .85rem;
     color: #9ca3af;
     margin-left: 0.5rem;
+  }
+  
+  .announcement-box {
+    background: #27272a; /* Zink-800 */
+    border: 1px solid #facc15; /* Amber-300 */
+    color: #facc15;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 8px rgba(250, 204, 21, 0.1);
   }
 
   .submit-button{width:100%;padding:1rem;border-radius:10px;background:var(--accent);color:black;font-weight:800;border:none;cursor:pointer;box-shadow:0 6px #d97706;transition:transform .08s}
@@ -753,10 +792,14 @@ export default function NotebookCompleteApp(): JSX.Element {
                     </>
                   )}
                   
-                  {/* Coupon Code Input (Hidden from UI but logic remains) */}
-                  <div style={{ marginBottom: 8, display: 'none' }}> 
+                  {/* Coupon Code Input (Visible) */}
+                  <div style={{ marginBottom: 8 }}> 
+                    <div className="announcement-box">
+                        🎉 **New User Special:** Use code **NEWUSER** for 20% OFF Book Plans!
+                    </div>
+                    
                     <label htmlFor="coupon-code" className="file-upload-label" style={{ fontWeight: 400, color: "#d1d5db" }}>
-                       Coupon Code (Hidden for personal distribution)
+                       Coupon Code (Optional)
                     </label>
                     <div className="coupon-input-container">
                       <InputField
@@ -765,9 +808,9 @@ export default function NotebookCompleteApp(): JSX.Element {
                         onChange={handleChange}
                         placeholder="Enter Coupon Code"
                       />
-                      {form.couponCode.length > 0 && (
-                        <div className={`coupon-status ${(isBookCouponApplied || isProjectCouponApplied) ? "coupon-applied" : "coupon-invalid"}`}>
-                          {(isBookCouponApplied || isProjectCouponApplied) ? `${couponDiscountPercent}% OFF Applied` : "Invalid Coupon"}
+                      {normalizedCouponCode.length > 0 && (
+                        <div className={`coupon-status ${isCouponValid ? "coupon-applied" : "coupon-invalid"}`}>
+                          {isCouponValid ? `${couponDiscountPercent}% OFF Applied` : "Invalid Coupon"}
                         </div>
                       )}
                     </div>
@@ -798,7 +841,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                             🎉 FREE Key Chain Included! (Plan Price above ₹{KEYCHAIN_THRESHOLD_BASE_PRICE})
                         </div>
                       )}
-                      {(isBookCouponApplied || isProjectCouponApplied) && (
+                      {isCouponValid && (
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
                             Discount Applied! Total Saved: ₹{savingsAmount} ({couponDiscountPercent}%)
                         </div>
