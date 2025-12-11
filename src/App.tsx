@@ -55,8 +55,7 @@ const BOOK_COUPONS: Record<string, number> = {
     "abhijeet": 0.50, // 50%
     // NEW public coupon for new users
     "newuser": 0.20, // 20%
-    "rj":1.00,
-    "sameer":1.00,
+    
 };
 
 // Fixed price coupons for Project
