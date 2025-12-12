@@ -460,7 +460,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   /* ========================
      Styles 
      ======================== */
-  const style = `
+const style = `
   :root{
     --bg: #0f0f0f;
     --card: #1a1a1a;
@@ -601,6 +601,7 @@ export default function NotebookCompleteApp(): JSX.Element {
 
   .footer{margin-top:1.5rem;text-align:center;color:#9ca3af;font-size:.9rem}
   `;
+
 
   return (
     <>
