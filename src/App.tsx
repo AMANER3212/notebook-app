@@ -450,7 +450,7 @@ export default function NotebookCompleteApp(): JSX.Element {
             `Please confirm availability and final quote.`;
     }
 
-    const whatsappUrl = `https://wa.me/911234567890?text=${msg}`;
+    const whatsappUrl = `https://wa.me/917559366120?text=${msg}`;
     window.open(whatsappUrl, "_blank");
 
     // small UX delay
