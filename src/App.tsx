@@ -408,3 +408,132 @@ export default function NotebookCompleteApp(): JSX.Element {
   const style = `/* ...include all your styles as before... */`;
 
   
+  /* ========================
+     Feedback Section & JSX
+     ======================== */
+  return (
+    <div className="notebook-app-container">
+      <style>{style}</style>
+      <h1>NotebookComplete Order Form</h1>
+
+      <form onSubmit={handleSubmit} className="notebook-form">
+        {/* PARTNER ENQUIRY TOGGLE */}
+        <div className="form-section">
+          <label>
+            <input
+              type="checkbox"
+              name="isPartnerEnquiry"
+              checked={form.isPartnerEnquiry}
+              onChange={handleChange}
+            />
+            Are you submitting a Partnership Enquiry?
+          </label>
+        </div>
+
+        {/* COMMON FIELDS */}
+        <InputField name="name" value={form.name} onChange={handleChange} placeholder="Full Name" error={errors.name} required />
+        <InputField name="phone" value={form.phone} onChange={handleChange} placeholder="Phone Number" error={errors.phone} required />
+        <InputField name="address" value={form.address} onChange={handleChange} placeholder="Address" />
+
+        {form.isPartnerEnquiry ? (
+          <>
+            <InputField name="orgName" value={form.orgName} onChange={handleChange} placeholder="Organization Name" error={errors.orgName} required />
+            <SelectField
+              name="partnerType"
+              value={form.partnerType}
+              onChange={handleChange}
+              options={["Individual", "Business", "Institution"]}
+            />
+            <textarea
+              name="businessDetails"
+              value={form.businessDetails}
+              onChange={handleChange}
+              placeholder="Business Details / Proposal"
+              className={`input-field ${errors.businessDetails ? "input-error-border" : ""}`}
+            />
+            {errors.businessDetails && <div className="input-error-text">{errors.businessDetails}</div>}
+          </>
+        ) : (
+          <>
+            {/* PLAN SELECTION */}
+            <div className="plan-selection">
+              <h3>Select a Plan:</h3>
+              <div className="pricing-cards-container">
+                {PRICING_PLANS.map(plan => (
+                  <PricingCard
+                    key={plan.value}
+                    title={plan.title}
+                    price={plan.price}
+                    details={plan.details}
+                    discount={plan.discount}
+                    isSelected={form.plan === plan.value}
+                    onClick={() => handlePlanChange(plan.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* BOOK PLAN / PROJECT FIELDS */}
+            {isProjectPlan ? (
+              <>
+                <InputField name="projectTitle" value={form.projectTitle} onChange={handleChange} placeholder="Project Title" error={errors.projectTitle} required />
+                <InputField name="domain" value={form.domain} onChange={handleChange} placeholder="Project Domain" error={errors.domain} required />
+                <InputField name="modules" value={form.modules} onChange={handleChange} placeholder="Modules / Requirements" error={errors.modules} required />
+                <label>
+                  <input type="checkbox" name="withBlackBook" checked={form.withBlackBook} onChange={handleChange} />
+                  Include Black Book (+₹{BLACK_BOOK_MARKUP})
+                </label>
+              </>
+            ) : (
+              <>
+                <InputField name="college" value={form.college} onChange={handleChange} placeholder="College Name" />
+                <InputField name="className" value={form.className} onChange={handleChange} placeholder="Class/Year" />
+                <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject" />
+                <InputField name="pages" value={form.pages} onChange={handleChange} placeholder="Number of Journals/Books" type="number" min={MIN_PAGES_PER_BOOK} error={errors.pages} required />
+                <label>
+                  <input type="checkbox" checked={form.withDiagrams} onChange={handleDiagramToggle} />
+                  Include Diagrams / Printouts (+20% markup)
+                </label>
+              </>
+            )}
+
+            {/* File Upload */}
+            <div className="form-section">
+              <label>Upload File (Optional):</label>
+              <input type="file" name="file" onChange={handleChange} />
+            </div>
+
+            {/* Notes */}
+            <div className="form-section">
+              <label>Additional Notes:</label>
+              <textarea name="notes" value={form.notes} onChange={handleChange} placeholder="Any instructions or details?" />
+            </div>
+
+            {/* Coupon */}
+            <InputField name="couponCode" value={form.couponCode || ""} onChange={handleChange} placeholder="Coupon Code (if any)" />
+            {isCouponValid && <div className="coupon-success">{couponMessage}</div>}
+          </>
+        )}
+
+        {/* QUOTE */}
+        <div className="quote-section">
+          <h3>Estimated Price: ₹{quote}</h3>
+          {savingsAmount > 0 && <div>You Save: ₹{savingsAmount} ({couponDiscountPercent}%)</div>}
+          {isKeyChainEligible && <div>🎁 FREE Key Chain included!</div>}
+        </div>
+
+        {/* SUBMIT */}
+        <button type="submit" disabled={isSubmitting}>
+          {form.isPartnerEnquiry ? "Send Partnership Enquiry via WhatsApp" : "Send Order via WhatsApp"}
+        </button>
+      </form>
+
+      {/* FEEDBACK SECTION */}
+      <div className="feedback-section">
+        <h3>Feedback / Support</h3>
+        <textarea placeholder="Share your feedback or ask a question..." />
+        <button>Send Feedback</button>
+      </div>
+    </div>
+  );
+}
