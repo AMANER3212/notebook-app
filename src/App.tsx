@@ -109,7 +109,7 @@ const TestimonialsSection = () => {
       try {
         setLoading(true);
         // ⚠️ REPLACE WITH YOUR ACTUAL GOOGLE SHEET ID
-        const sheetId = "YOUR_SHEET_ID_HERE";
+        const sheetId = "1zd5kuro3UGJfc_zhHyWSRe8tbewdzWe0LC7wO5XRCiM";
         const sheetName = "Sheet1";
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
         
