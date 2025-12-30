@@ -875,6 +875,71 @@ const style = `
               )}
             </form>
           </section>
+           /* =========================
+   Feedback Section
+   ========================= */
+interface Feedback {
+  name: string;
+  message: string;
+  rating: number;
+  image_url: string; // user face
+  product_image_url?: string;
+}
+
+const FEEDBACK_API_URL = "YOUR_SCRIPT_URL_HERE?key=YOUR_SECRET_KEY"; // replace with Apps Script URL & secret
+
+function FeedbackSection() {
+  const [reviews, setReviews] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        const res = await fetch(FEEDBACK_API_URL);
+        const data = await res.json();
+        setReviews(data.filter((r: any) => r.approved)); // only approved reviews
+      } catch (err) {
+        console.error("Failed to fetch feedback:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchReviews();
+  }, []);
+
+  if (loading) return <div style={{ textAlign: "center", padding: 16 }}>Loading feedback...</div>;
+  if (!reviews.length) return <div style={{ textAlign: "center", padding: 16 }}>No reviews yet.</div>;
+
+  return (
+    <section style={{ marginTop: 48 }}>
+      <h3 style={{ textAlign: "center", fontSize: 20, fontWeight: 700, marginBottom: 16, color: "#fbbf24" }}>User Feedback</h3>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+        {reviews.map((rev, idx) => (
+          <div key={idx} style={{ background: "#111", padding: 16, borderRadius: 12, boxShadow: "0 4px 12px rgba(245,158,11,0.15)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <img
+                src={rev.image_url || "https://placehold.co/50x50?text=User"}
+                alt={rev.name}
+                style={{ width: 50, height: 50, borderRadius: "50%", objectFit: "cover" }}
+              />
+              <strong>{rev.name}</strong>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} style={{ color: i < rev.rating ? "#fbbf24" : "#444" }}>★</span>
+              ))}
+            </div>
+            <p style={{ fontSize: 14, color: "#d1d5db", marginBottom: 8 }}>{rev.message}</p>
+            {rev.product_image_url && (
+              <img src={rev.product_image_url} alt="Product" style={{ width: "100%", borderRadius: 8, objectFit: "cover" }} />
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 
           <footer className="footer">© {new Date().getFullYear()} NotebookComplete — Fast · Neat · Affordable</footer>
         </main>
