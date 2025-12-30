@@ -407,5 +407,4 @@ export default function NotebookCompleteApp(): JSX.Element {
      ======================== */
   const style = `/* ...include all your styles as before... */`;
 
-  /* ========================
-     Feedback Section
+  
