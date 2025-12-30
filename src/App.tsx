@@ -53,6 +53,7 @@ const BOOK_COUPONS: Record<string, CouponDetails> = {
     "abhijeet": { rate: 0.50, message: "A special 50% discount has been applied to your order." },
     "rj": { rate: 1.00, message: "🎉 Congratulations! Your Book Plan is now FREE!" },
     "sameer": { rate: 1.00, message: "🎉 Congratulations! Your Book Plan is now FREE!" },
+   "freinds": { fixed:999, message: "🎉 Congratulations! Your Book Plan is now FREE!" },
 };
 
 const PROJECT_COUPONS: Record<string, CouponDetails> = {
