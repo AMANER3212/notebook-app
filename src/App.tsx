@@ -939,6 +939,9 @@ function FeedbackSection() {
     </section>
   );
 }
+           <FeedbackSection />
+<footer className="footer">© {new Date().getFullYear()} NotebookComplete — Fast · Neat · Affordable</footer>
+
 
 
           <footer className="footer">© {new Date().getFullYear()} NotebookComplete — Fast · Neat · Affordable</footer>
