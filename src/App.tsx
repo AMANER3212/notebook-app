@@ -32,10 +32,10 @@ interface PricingPlan {
 }
 
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199 Total", details: "100+ pages · no diagrams", discount: "Base Price", value: "1 Book" },
-  { title: "3 Books Pack", price: "₹499 Total", details: "300+ pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
-  { title: "6 Books Pack", price: "₹999 Total", details: "600+ pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
-  { title: "12 Books Pack", price: "₹1999 Total", details: "1200+ pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
+  { title: "Single Book", price: "₹199 Total", details: "30 pages · no diagrams", discount: "Base Price", value: "1 Book" },
+  { title: "3 Books Pack", price: "₹499 Total", details: "100 pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
+  { title: "6 Books Pack", price: "₹999 Total", details: "200 pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
+  { title: "12 Books Pack", price: "₹1999 Total", details: "800 pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
   { title: "Project & Report", price: "₹3999 Total", details: "Software/Academic Project", discount: "New Feature", value: "Project" },
 ];
 
