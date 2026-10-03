@@ -32,10 +32,10 @@ interface PricingPlan {
 }
 
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199 Total", details: "30 pages · no diagrams", discount: "Base Price", value: "1 Book" },
-  { title: "3 Books Pack", price: "₹499 Total", details: "100 pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
-  { title: "6 Books Pack", price: "₹999 Total", details: "200 pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
-  { title: "12 Books Pack", price: "₹1999 Total", details: "800 pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
+  { title: "Single Book", price: "₹599 Total", details: "100 pages · no diagrams", discount: "Base Price", value: "1 Book" },
+  { title: "3 Books Pack", price: "₹1799 Total", details: "300 pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
+  { title: "6 Books Pack", price: "₹3599 Total", details: "600 pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
+  { title: "12 Books Pack", price: "₹7199 Total", details: "1200 pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
   { title: "Project & Report", price: "₹3999 Total", details: "Software/Academic Project", discount: "New Feature", value: "Project" },
 ];
 
@@ -361,7 +361,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const planFixedPrice = PLAN_PRICES[form.plan] ?? 199;
+  const planFixedPrice = PLAN_PRICES[form.plan] ?? 599;
   const isProjectPlan = form.plan === "Project";
   const normalizedCouponCode = form.couponCode.toLowerCase().trim();
 
@@ -486,7 +486,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   };
 
   const getPlanInfoForMessage = (planKey: PlanKey) => {
-    const totalFixedPrice = PLAN_PRICES[planKey] ?? 199;
+    const totalFixedPrice = PLAN_PRICES[planKey] ?? 599;
 
     if (planKey === "Project") {
       let msg = `Plan: ${planKey} (Base Price: ₹${totalFixedPrice})`;
@@ -695,7 +695,7 @@ export default function NotebookCompleteApp(): JSX.Element {
               <h2 id="hero-heading">Need your books/assignments completed? We do it fast & neatly.</h2>
               <p>Choose your plan, upload details, and get it done — without stress. <strong>100+ pages per book minimum.</strong></p>
               <ul style={{ marginTop: 12, color: "#374151", paddingLeft: 18 }}>
-                <li>✔️️ Neat handwriting and proper formatting</li>
+                <li>✔️ Neat handwriting and proper formatting</li>
                 <li>✔️ Optional: Add diagrams/printouts (+20% fee)</li>
                 <li>✔️ Local delivery or WhatsApp photo copy</li>
               </ul>
@@ -875,7 +875,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                         name="couponCode"
                         value={form.couponCode}
                         onChange={handleChange}
-                        placeholder="Enter Code (e.g. rajm, akshayb)"
+                        placeholder="Enter Code"
                         className="input-field"
                       />
                       {normalizedCouponCode.length > 0 && (
