@@ -41,7 +41,6 @@ const PRICING_PLANS: PricingPlan[] = [
 ];
 
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2;
-const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
 interface CouponDetails {
   rate?: number;
@@ -435,8 +434,6 @@ export default function NotebookCompleteApp(): JSX.Element {
 
   }, [planFixedPrice, isProjectPlan, form.deliverySpeed, numBooks, form.withBlackBook, form.withDiagrams, isCouponValid, finalFixedPrice, discountRate]);
 
-  const isKeyChainEligible = planFixedPrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
-
   useEffect(() => {
     setQuote(estimatedPrice);
   }, [estimatedPrice]);
@@ -528,7 +525,6 @@ export default function NotebookCompleteApp(): JSX.Element {
         couponMsg = `✅ Coupon Applied: *${form.couponCode.toUpperCase()}* - ${couponMessage}`;
       }
       
-      const keychainMsg = isKeyChainEligible ? `🎁 *FREE Key Chain Included*` : "—";
       const deliveryMsg = form.deliverySpeed === "urgent" 
         ? `🚀 Delivery: Within 5 days (+₹100/book)` 
         : `🚚 Delivery: More than 5 days (Free)`;
@@ -557,7 +553,6 @@ export default function NotebookCompleteApp(): JSX.Element {
         orderDetails +
         `💸 ${planInfo}%0A` +
         `🏷 Coupon: ${couponMsg}%0A` + 
-        `🎁 Freebie: ${keychainMsg}%0A` +
         `📝 Notes: ${form.notes || "—"}%0A%0A` +
         `💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
         `*Total Savings: ₹${savingsAmount}* (${couponDiscountPercent}%)%0A%0A` +
@@ -918,11 +913,6 @@ export default function NotebookCompleteApp(): JSX.Element {
                     <div className="quote-box-prominent" aria-live="polite">
                       <span>Your Estimated Quote:</span>
                       <strong>₹{quote}</strong>
-                      {isKeyChainEligible && !isProjectPlan && (
-                        <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
-                          🎉 FREE Key Chain Included!
-                        </div>
-                      )}
                       {isCouponValid && (
                         <div style={{ color: '#10b981', fontWeight: 700, marginTop: '0.5rem', fontSize: '0.95rem' }}>
                           Total Saved: ₹{savingsAmount} ({couponDiscountPercent}%)
