@@ -4,24 +4,28 @@ import React, { JSX, useEffect, useMemo, useState } from "react";
    Constants & Types 
    ============================ */
 
-const BOOK_PLAN_PRICES = {
-  "1 Book": 199, 
-  "3 Books": 499,
-  "6 Books": 999,
-  "12 Books": 1999,
-} as const;
-
+const PRICE_PER_PAGE = 20;
 const PROJECT_PLAN_PRICE = 3999;
 const BLACK_BOOK_MARKUP = 850;
 
-type BookPlanKey = keyof typeof BOOK_PLAN_PRICES;
+type BookPlanKey = "1 Book" | "3 Books" | "6 Books" | "12 Books";
 type ProjectPlanKey = "Project";
 type PlanKey = BookPlanKey | ProjectPlanKey;
 
+const PLAN_BOOK_COUNTS: Record<BookPlanKey, number> = {
+  "1 Book": 1,
+  "3 Books": 3,
+  "6 Books": 6,
+  "12 Books": 12,
+};
+
 const PLAN_PRICES: Record<PlanKey, number> = {
-    ...BOOK_PLAN_PRICES,
-    "Project": PROJECT_PLAN_PRICE
-} as const;
+  "1 Book": 0,
+  "3 Books": 0,
+  "6 Books": 0,
+  "12 Books": 0,
+  "Project": PROJECT_PLAN_PRICE
+};
 
 interface PricingPlan {
   title: string;
@@ -32,14 +36,14 @@ interface PricingPlan {
 }
 
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹199 Total", details: "30 pages · no diagrams", discount: "Base Price", value: "1 Book" },
-  { title: "3 Books Pack", price: "₹499 Total", details: "100 pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
-  { title: "6 Books Pack", price: "₹999 Total", details: "200 pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
-  { title: "12 Books Pack", price: "₹1999 Total", details: "800 pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
+  { title: "Single Book", price: "₹20 / page", details: "1 book · choose pages", discount: "Pay per page", value: "1 Book" },
+  { title: "3 Books Pack", price: "₹20 / page", details: "3 books · choose pages", discount: "Pay per page", value: "3 Books" },
+  { title: "6 Books Pack", price: "₹20 / page", details: "6 books · choose pages", discount: "Pay per page", value: "6 Books" },
+  { title: "12 Books Pack", price: "₹20 / page", details: "12 books · choose pages", discount: "Pay per page", value: "12 Books" },
   { title: "Project & Report", price: "₹3999 Total", details: "Software/Academic Project", discount: "New Feature", value: "Project" },
 ];
 
-const MIN_PAGES_PER_BOOK = 100; 
+const MIN_PAGES_PER_BOOK = 1; 
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2;
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
@@ -86,6 +90,7 @@ interface FormState {
   orgName: string;
   partnerType: string;
   businessDetails: string;
+  pagesPerBook: number;
 }
 
 /* =========================
@@ -345,15 +350,21 @@ export default function NotebookCompleteApp(): JSX.Element {
     isPartnerEnquiry: false,
     orgName: "",
     partnerType: "Individual",
-    businessDetails: ""
+    businessDetails: "",
+    pagesPerBook: 100
   });
 
   const [quote, setQuote] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const planFixedPrice = PLAN_PRICES[form.plan] ?? 199;
   const isProjectPlan = form.plan === "Project";
+  const selectedBookCount = !isProjectPlan
+    ? PLAN_BOOK_COUNTS[form.plan as BookPlanKey]
+    : 0;
+  const bookBasePrice = !isProjectPlan
+    ? selectedBookCount * Math.max(1, Number(form.pagesPerBook) || 0) * PRICE_PER_PAGE
+    : PROJECT_PLAN_PRICE;
   const normalizedCouponCode = form.couponCode.toLowerCase().trim();
   
   const { discountRate, finalFixedPrice, isCouponValid, couponMessage } = useMemo(() => {
@@ -373,7 +384,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }, [isProjectPlan, normalizedCouponCode]);
 
   const { estimatedPrice, savingsAmount, couponDiscountPercent } = useMemo(() => {
-    let basePrice = planFixedPrice;
+    let basePrice = bookBasePrice;
     let finalPrice = basePrice;
     let savings = 0;
     let discountPercent = 0;
@@ -384,7 +395,7 @@ export default function NotebookCompleteApp(): JSX.Element {
     }
 
     if (!isProjectPlan) {
-        const markup = planFixedPrice * DIAGRAM_MARKUP_PERCENTAGE;
+        const markup = bookBasePrice * DIAGRAM_MARKUP_PERCENTAGE;
         if (form.withDiagrams) {
             basePrice += markup;
             finalPrice += markup;
@@ -408,9 +419,9 @@ export default function NotebookCompleteApp(): JSX.Element {
         savingsAmount: Math.round(savings),
         couponDiscountPercent: discountPercent,
     };
-  }, [planFixedPrice, isProjectPlan, form.withBlackBook, form.withDiagrams, isCouponValid, finalFixedPrice, discountRate]);
+  }, [bookBasePrice, isProjectPlan, form.withBlackBook, form.withDiagrams, isCouponValid, finalFixedPrice, discountRate]);
   
-  const isKeyChainEligible = planFixedPrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
+  const isKeyChainEligible = bookBasePrice >= KEYCHAIN_THRESHOLD_BASE_PRICE;
 
   useEffect(() => {
     setQuote(estimatedPrice);
@@ -471,18 +482,18 @@ export default function NotebookCompleteApp(): JSX.Element {
   };
   
   const getPlanInfoForMessage = (planKey: PlanKey) => {
-      const totalFixedPrice = PLAN_PRICES[planKey] ?? 199;
-      
       if (planKey === "Project") {
-        let msg = `Plan: ${planKey} (Base Price: ₹${totalFixedPrice})`;
+        let msg = `Plan: ${planKey} (Base Price: ₹${PROJECT_PLAN_PRICE})`;
         if (form.withBlackBook) msg += ` + Black Book (₹${BLACK_BOOK_MARKUP})`;
         return msg;
       }
-      
-      const books = planKey.split(' ')[0] === '1' ? 1 : Number(planKey.split(' ')[0]);
-      const effectiveRate = Math.round(totalFixedPrice / books);
 
-      return `Plan: ${planKey} (${books * MIN_PAGES_PER_BOOK}+ pages | Total: ₹${totalFixedPrice} - ₹${effectiveRate}/book)`;
+      const books = PLAN_BOOK_COUNTS[planKey as BookPlanKey];
+      const pages = Math.max(1, Number(form.pagesPerBook) || 0);
+      const totalPages = books * pages;
+      const total = totalPages * PRICE_PER_PAGE;
+
+      return `Plan: ${planKey} (${books} book${books > 1 ? "s" : ""} × ${pages} pages = ${totalPages} pages | ₹${PRICE_PER_PAGE}/page | Total: ₹${Math.round(total)})`;
   };
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -529,7 +540,8 @@ export default function NotebookCompleteApp(): JSX.Element {
                 `🏫 College: ${form.college || "—"}%0A` +
                 `📚 Class: ${form.className || "—"}%0A` +
                 `📘 Subject: ${form.subject || "—"}%0A` +
-                `📄 *${MIN_PAGES_PER_BOOK}+ pages per book (Fixed Plan Price)*%0A` +
+                `📄 *${selectedBookCount} book${selectedBookCount > 1 ? "s" : ""} × ${form.pagesPerBook} pages/book = ${selectedBookCount * Number(form.pagesPerBook)} total pages*%0A` +
+                `💰 *Rate: ₹${PRICE_PER_PAGE} per page*%0A` +
                 `🎨 Diagrams/Printouts: ${diagramsMsg}%0A`;
         }
 
@@ -690,7 +702,7 @@ export default function NotebookCompleteApp(): JSX.Element {
           <section className="hero-section" role="region" aria-labelledby="hero-heading">
             <div className="hero-text">
               <h2 id="hero-heading">Need your books/assignments completed? We do it fast & neatly.</h2>
-              <p>Choose your plan, upload details, and get it done — without stress. <strong>100+ pages per book minimum.</strong></p>
+              <p>Choose your plan, enter your page count, upload details, and get it done — without stress. <strong>₹{PRICE_PER_PAGE} per page.</strong></p>
               <ul style={{ marginTop: 12, color: "#374151", paddingLeft: 18 }}>
                 <li>✔️ Neat handwriting and proper formatting</li>
                 <li>✔️ **Optional: Add diagrams/printouts (+20% fee)**</li>
@@ -840,8 +852,27 @@ export default function NotebookCompleteApp(): JSX.Element {
                             <InputField name="subject" value={form.subject} onChange={handleChange} placeholder="Subject (Optional)" />
                         </fieldset>
 
+                        <fieldset className="fieldset-grid-2" style={{ marginBottom: 8 }}>
+                            <InputField
+                                name="pagesPerBook"
+                                value={form.pagesPerBook}
+                                onChange={handleChange}
+                                placeholder={`Pages per book (₹${PRICE_PER_PAGE}/page)`}
+                                type="number"
+                                required
+                                error={errors.pagesPerBook}
+                            />
+                            <div className="quote-box-prominent" style={{ padding: "0.8rem" }}>
+                                <span>Page Pricing:</span>
+                                <strong style={{ fontSize: "1.35rem" }}>
+                                  {selectedBookCount} × {Math.max(1, Number(form.pagesPerBook) || 0)} × ₹{PRICE_PER_PAGE}
+                                  = ₹{Math.round(bookBasePrice)}
+                                </strong>
+                            </div>
+                        </fieldset>
+
                         <div className="toggle-row" style={{ marginBottom: 16 }}>
-                            <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+{DIAGRAM_MARKUP_PERCENTAGE * 100}% Total Price) <strong>· 100+ pages/book</strong></label>
+                            <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+{DIAGRAM_MARKUP_PERCENTAGE * 100}% Total Price)</label>
                             <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
                         </div>
                     </>
