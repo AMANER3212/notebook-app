@@ -6,12 +6,12 @@ Constants & Types
 
 const BOOK_PLAN_PRICES = {
   "1 Book": 599,
-  "3 Books": 1799,
-  "6 Books": 3599,
-  "12 Books": 7199,
+  "3 Books": 1699,
+  "6 Books": 3299,
+  "12 Books": 6469,
 } as const;
 
-const PROJECT_PLAN_PRICE = 3999;
+const PROJECT_PLAN_PRICE = 5999;
 const BLACK_BOOK_MARKUP = 850;
 
 type BookPlanKey = keyof typeof BOOK_PLAN_PRICES;
@@ -25,6 +25,7 @@ const PLAN_PRICES: Record<PlanKey, number> = {
 
 interface PricingPlan {
   title: string;
+  originalPrice?: string;
   price: string;
   details: string;
   discount: string;
@@ -32,14 +33,13 @@ interface PricingPlan {
 }
 
 const PRICING_PLANS: PricingPlan[] = [
-  { title: "Single Book", price: "₹599 Total", details: "100 pages · no diagrams", discount: "Base Price", value: "1 Book" },
-  { title: "3 Books Pack", price: "₹1799 Total", details: "300 pages · Great Value", discount: "-25% (per book)", value: "3 Books" },
-  { title: "6 Books Pack", price: "₹3599 Total", details: "600 pages · Maximum Savings", discount:"-33% (per book)", value: "6 Books" },
-  { title: "12 Books Pack", price: "₹7199 Total", details: "1200 pages · Ultimate Plan", discount: "-40% (per book)", value: "12 Books" },
-  { title: "Project & Report", price: "₹3999 Total", details: "Software/Academic Project", discount: "New Feature", value: "Project" },
+  { title: "Single Book", price: "₹599 Total", details: "30 pages · no diagrams", discount: "Base Price", value: "1 Book" },
+  { title: "3 Books Pack", originalPrice: "₹1,797", price: "₹1,699 Total", details: "100 pages · Save 5%", discount: "-5% OFF", value: "3 Books" },
+  { title: "6 Books Pack", originalPrice: "₹3,594", price: "₹3,299 Total", details: "200 pages · Save 8%", discount: "-8% OFF", value: "6 Books" },
+  { title: "12 Books Pack", originalPrice: "₹7,188", price: "₹6,469 Total", details: "800 pages · Save 10%", discount: "-10% OFF", value: "12 Books" },
+  { title: "Project & Report", originalPrice: "₹6,499", price: "₹5,999 Total", details: "Software/Academic Project", discount: "-8% OFF", value: "Project" },
 ];
 
-const MIN_PAGES_PER_BOOK = 100;
 const DIAGRAM_MARKUP_PERCENTAGE = 0.2;
 const KEYCHAIN_THRESHOLD_BASE_PRICE = 499;
 
@@ -311,18 +311,22 @@ const SelectField = (props: {
 
 const PricingCard = (props: {
   title: string;
+  originalPrice?: string;
   price: string;
   details: string;
   discount: string;
   isSelected: boolean;
   onClick: () => void;
 }) => {
-  const { title, price, details, discount, isSelected, onClick } = props;
+  const { title, originalPrice, price, details, discount, isSelected, onClick } = props;
   return (
     <button type="button" className={`pricing-card ${isSelected ? "pricing-card-selected" : ""}`} onClick={onClick} aria-pressed={isSelected}>
       <div className="pricing-card-inner">
         <h4 className="pricing-card-title">{title}</h4>
-        <div className="pricing-card-price">{price}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
+          {originalPrice && <span className="pricing-card-original">{originalPrice}</span>}
+          <span className="pricing-card-price">{price}</span>
+        </div>
         <div className="pricing-card-details">{details}</div>
         <div className="pricing-card-discount">{discount}</div>
       </div>
@@ -390,7 +394,6 @@ export default function NotebookCompleteApp(): JSX.Element {
   const { estimatedPrice, savingsAmount, couponDiscountPercent } = useMemo(() => {
     let basePrice = planFixedPrice;
 
-    // Urgent delivery charge added BEFORE coupon discount
     if (!isProjectPlan && form.deliverySpeed === "urgent") {
       basePrice += numBooks * 100;
     }
@@ -494,10 +497,10 @@ export default function NotebookCompleteApp(): JSX.Element {
       return msg;
     }
     
-    const books = planKey.split(' ')[0] === '1' ? 1 : Number(planKey.split(' ')[0]);
-    const effectiveRate = Math.round(totalFixedPrice / books);
+    const selectedPlanObj = PRICING_PLANS.find(p => p.value === planKey);
+    const detailsStr = selectedPlanObj ? selectedPlanObj.details : "";
 
-    return `Plan: ${planKey} (${books * MIN_PAGES_PER_BOOK}+ pages | Total: ₹${totalFixedPrice} - ₹${effectiveRate}/book)`;
+    return `Plan: ${planKey} (${detailsStr} | Total: ₹${totalFixedPrice})`;
   };
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -544,7 +547,6 @@ export default function NotebookCompleteApp(): JSX.Element {
           `🏫 College: ${form.college || "—"}%0A` +
           `📚 Class: ${form.className || "—"}%0A` +
           `📘 Subject: ${form.subject || "—"}%0A` +
-          `📄 *${MIN_PAGES_PER_BOOK}+ pages per book (Fixed Plan Price)*%0A` +
           `🎨 Diagrams/Printouts: ${diagramsMsg}%0A` +
           `${deliveryMsg}%0A`;
       }
@@ -554,7 +556,7 @@ export default function NotebookCompleteApp(): JSX.Element {
         `👤 Name: ${form.name}%0A📞 Phone: ${form.phone}%0A 🏠 Address: ${form.address || "—"}%0A%0A` +
         orderDetails +
         `💸 ${planInfo}%0A` +
-        `🏷️ Coupon: ${couponMsg}%0A` + 
+        `🏷 Coupon: ${couponMsg}%0A` + 
         `🎁 Freebie: ${keychainMsg}%0A` +
         `📝 Notes: ${form.notes || "—"}%0A%0A` +
         `💵 *FINAL Estimated Price: ₹${price}*%0A%0A` +
@@ -568,7 +570,7 @@ export default function NotebookCompleteApp(): JSX.Element {
   }
 
   const style = `
-    {
+    :root {
       --bg: #0f0f0f;
       --card: #1a1a1a;
       --accent: #f59e0b;
@@ -586,15 +588,23 @@ export default function NotebookCompleteApp(): JSX.Element {
     .hero-text p{color:var(--muted);margin-top:0.5rem}
     .pricing-section{display:grid;grid-template-columns:1fr;gap:1rem;margin-top:1.25rem}
     @media(min-width:640px){.pricing-section{grid-template-columns:repeat(2,1fr)}}
-    @media(min-width:1024px){.pricing-section{grid-template-columns:repeat(4,1fr)}}
+    @media(min-width:1024px){.pricing-section{grid-template-columns:repeat(5,1fr)}}
 
     .pricing-card{background:#111;border:1px solid #333;padding:1.1rem;border-radius:12px;cursor:pointer;text-align:left;transition:transform .18s,box-shadow .18s,color .18s}
     .pricing-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(245,158,11,0.2)}
-    .pricing-card-selected{background:#f59e0b;color:#111;border-color:#fbbf24;transform:scale(1.03)}
-    .pricing-card-title{font-weight:700;margin:0 0 .35rem 0}
+    .pricing-card-title{font-weight:700;margin:0 0 .35rem 0;color:white}
+    .pricing-card-original{font-size:0.95rem;color:#9ca3af;text-decoration:line-through}
     .pricing-card-price{font-size:1.25rem;color:#fbbf24;font-weight:800}
     .pricing-card-details{color:#d1d5db;font-size:.9rem;margin-top:.4rem}
     .pricing-card-discount{display:inline-block;margin-top:.6rem;font-size:.78rem;background:#fef3c7;padding:.25rem .5rem;border-radius:8px;color:#92400e}
+
+    /* Selected State Styles */
+    .pricing-card-selected{background:#f59e0b;color:#111;border-color:#fbbf24;transform:scale(1.03)}
+    .pricing-card-selected .pricing-card-title{color:#111111}
+    .pricing-card-selected .pricing-card-original{color:#4b5563;text-decoration:line-through}
+    .pricing-card-selected .pricing-card-price{color:#111111}
+    .pricing-card-selected .pricing-card-details{color:#1f2937}
+    .pricing-card-selected .pricing-card-discount{background:#111111;color:#facc15}
 
     .order-section{margin-top:1.75rem;background:#111;padding:2rem;border-radius:14px;box-shadow:0 12px 28px rgba(245,158,11,0.15)}
     .form-container{display:flex;flex-direction:column;gap:1rem}
@@ -693,7 +703,7 @@ export default function NotebookCompleteApp(): JSX.Element {
           <section className="hero-section" role="region" aria-labelledby="hero-heading">
             <div className="hero-text">
               <h2 id="hero-heading">Need your books/assignments completed? We do it fast & neatly.</h2>
-              <p>Choose your plan, upload details, and get it done — without stress. <strong>100+ pages per book minimum.</strong></p>
+              <p>Choose your plan, upload details, and get it done — without stress.</p>
               <ul style={{ marginTop: 12, color: "#374151", paddingLeft: 18 }}>
                 <li>✔️ Neat handwriting and proper formatting</li>
                 <li>✔️ Optional: Add diagrams/printouts (+20% fee)</li>
@@ -789,11 +799,12 @@ export default function NotebookCompleteApp(): JSX.Element {
                 </>
               ) : (
                 <>
-                  <section id="pricing-order" className="pricing-section" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', margin: '0 0 16px 0', padding: 0 }}>
+                  <section id="pricing-order" className="pricing-section" style={{ margin: '0 0 16px 0', padding: 0 }}>
                     {PRICING_PLANS.map((p) => (
                       <PricingCard
                         key={p.title}
                         title={p.title}
+                        originalPrice={p.originalPrice}
                         price={p.price}
                         details={p.details}
                         discount={p.discount}
@@ -859,7 +870,7 @@ export default function NotebookCompleteApp(): JSX.Element {
                       </div>
 
                       <div className="toggle-row" style={{ marginBottom: 16 }}>
-                        <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+{DIAGRAM_MARKUP_PERCENTAGE * 100}% Total Price) <strong>· 100+ pages/book</strong></label>
+                        <label htmlFor="diagram-toggle">Include Diagrams/Printouts (+{DIAGRAM_MARKUP_PERCENTAGE * 100}% Total Price)</label>
                         <input id="diagram-toggle" type="checkbox" name="withDiagrams" checked={form.withDiagrams} onChange={handleDiagramToggle} style={{ width: 18, height: 18, accentColor: "#f59e0b" }} />
                       </div>
                     </>
