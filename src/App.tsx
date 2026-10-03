@@ -5,10 +5,10 @@ Constants & Types
 ============================ */
 
 const BOOK_PLAN_PRICES = {
-"1 Book": 199,
-"3 Books": 499,
-"6 Books": 999,
-"12 Books": 1999,
+"1 Book": 599,
+"3 Books": 1799,
+"6 Books": 3599,
+"12 Books": 7199,
 } as const;
 
 const PROJECT_PLAN_PRICE = 3999;
