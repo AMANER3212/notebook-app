@@ -112,7 +112,7 @@ setLoading(true);
 // ⚠️ REPLACE WITH YOUR ACTUAL GOOGLE SHEET ID
 const sheetId = "1zd5kuro3UGJfc_zhHyWSRe8tbewdzWe0LC7wO5XRCiM";
 const sheetName = "Sheet1";
-const url = https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName};
+const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
 
     const response = await fetch(url);
     const text = await response.text();
@@ -275,11 +275,11 @@ onChange={onChange}
 placeholder={placeholder}
 required={required}
 type={type}
-className={input-field ${error ? "input-error-border" : ""}}
+className={`input-field ${error ? "input-error-border" : ""}`}
 aria-invalid={!!error}
-aria-describedby={error ? ${name}-err : undefined}
+aria-describedby={error ? `${name}-err` : undefined}
 />
-{error && <div id={${name}-err} className="input-error-text">{error}</div>}
+{error && <div id={`${name}-err`} className="input-error-text">{error}</div>}
 </div>
 );
 };
@@ -294,7 +294,7 @@ error?: string | null;
 const { name, value, onChange, options, error } = props;
 return (
 <div className="input-container">
-<select name={name} value={value} onChange={onChange} className={select-field ${error ? "input-error-border" : ""}} aria-invalid={!!error}>
+<select name={name} value={value} onChange={onChange} className={`select-field ${error ? "input-error-border" : ""}`} aria-invalid={!!error}>
 {options.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
 </select>
 {error && <div className="input-error-text">{error}</div>}
@@ -312,7 +312,7 @@ onClick: () => void;
 }) => {
 const { title, price, details, discount, isSelected, onClick } = props;
 return (
-<button type="button" className={pricing-card ${isSelected ? "pricing-card-selected" : ""}} onClick={onClick} aria-pressed={isSelected}>
+<button type="button" className={`pricing-card ${isSelected ? "pricing-card-selected" : ""}`} onClick={onClick} aria-pressed={isSelected}>
 <div className="pricing-card-inner">
 <h4 className="pricing-card-title">{title}</h4>
 <div className="pricing-card-price">{price}</div>
@@ -570,15 +570,15 @@ const style = `
 *{box-sizing: border-box}
 body{background: var(--bg); color: white; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0}
 .max-w-5xl{max-width:80rem;margin:0 auto;padding:1rem}
-.header{display;align-items;gap:1rem;padding:1rem 0}
-.logo{width:48px;height:48px;border-radius:12px;background(180deg,#facc15,#eab308);display;align-items;justify-content;color:#111;font-weight:800}
-.hero-section{display;grid-template-columns:1fr;gap:1.5rem;background(--card);padding:1.75rem;border-radius:12px;box-shadow:0 10px 22px rgba(0,0,0,0.4)}
+.header{display:flex;align-items:center;gap:1rem;padding:1rem 0}
+.logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(180deg,#facc15,#eab308);display:flex;align-items:center;justify-content:center;color:#111;font-weight:800}
+.hero-section{display:grid;grid-template-columns:1fr;gap:1.5rem;background:var(--card);padding:1.75rem;border-radius:12px;box-shadow:0 10px 22px rgba(0,0,0,0.4)}
 @media(min-width:768px){.hero-section{grid-template-columns:1fr 1fr}}
 .hero-text h2{margin:0;font-size:1.7rem;color:#fbbf24}
-.hero-text p{color(--muted);margin-top:0.5rem}
-.pricing-section{display;grid-template-columns(1,1fr);gap:1rem;margin-top:1.25rem}
-@media(min-width:640px){.pricing-section{grid-template-columns(2,1fr)}}
-@media(min-width:1024px){.pricing-section{grid-template-columns(4,1fr)}}
+.hero-text p{color:var(--muted);margin-top:0.5rem}
+.pricing-section{display:grid;grid-template-columns:1fr;gap:1rem;margin-top:1.25rem}
+@media(min-width:640px){.pricing-section{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.pricing-section{grid-template-columns:repeat(4,1fr)}}
 
 .pricing-card{background:#111;border:1px solid #333;padding:1.1rem;border-radius:12px;cursor:pointer;text-align:left;transition:transform .18s,box-shadow .18s,color .18s}
 .pricing-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(245,158,11,0.2)}
@@ -701,7 +701,7 @@ return (
           <p>Choose your plan, upload details, and get it done — without stress. <strong>100+ pages per book minimum.</strong></p>
           <ul style={{ marginTop: 12, color: "#374151", paddingLeft: 18 }}>
             <li>✔️ Neat handwriting and proper formatting</li>
-            <li>✔️ **Optional: Add diagrams/printouts (+20% fee)**</li>
+            <li>✔️ Optional: Add diagrams/printouts (+20% fee)</li>
             <li>✔️ Local delivery or WhatsApp photo copy</li>
           </ul>
         </div>
@@ -723,7 +723,7 @@ return (
       <section id="order" className="order-section">
         <div className="toggle-row" style={{ marginBottom: 16, background: '#1c1c1c', borderColor: '#555' }}>
           <label htmlFor="partner-toggle" style={{ color: '#ccc' }}>
-              Are you looking to **Partner** with us? Click here!
+              Are you looking to Partner with us? Click here!
           </label>
           <input 
               id="partner-toggle" 
